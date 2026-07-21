@@ -1,0 +1,6 @@
+{
+  "name": "Canva Planner Blueprint Generator",
+  "description": "Customize and export 27 unique A5 planner pages as perfectly calibrated Canva editable vector SVGs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,18 @@
+{
+  "short_name": "Monthly OS",
+  "name": "Personal Monthly Operating System Dashboard",
+  "description": "Prinstine high-fidelity monthly operating system planning and habit dashboard.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3652/3652191.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#121316",
+  "theme_color": "#121316",
+  "display": "standalone",
+  "orientation": "portrait"
+}
