@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PageConfig, PlannerState } from '../types';
 import { generateSVGString } from '../utils/svgGenerator';
 import { 
@@ -68,6 +68,8 @@ interface WorkspaceProps {
   setProjectTab: React.Dispatch<React.SetStateAction<'overview' | 'objectives' | 'tasks' | 'milestones' | 'notes' | 'attachments' | 'timeline' | 'activity' | 'reviews'>>;
   selectedDate: number;
   setSelectedDate: React.Dispatch<React.SetStateAction<number>>;
+  selectedMonthIdx: number;
+  setSelectedMonthIdx: (idx: number) => void;
 }
 
 export const Workspace: React.FC<WorkspaceProps> = ({
@@ -88,9 +90,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   projectTab,
   setProjectTab,
   selectedDate,
-  setSelectedDate
+  setSelectedDate,
+  selectedMonthIdx,
+  setSelectedMonthIdx
 }) => {
+  const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number>(0.80);
+  const [autoScale, setAutoScale] = useState<number>(0.80);
   const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const [activeWeek, setActiveWeek] = useState<number>(1);
   const [projectFilter, setProjectFilter] = useState<'all' | 'active' | 'completed' | 'archived'>('all');
@@ -124,18 +130,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
   const [goalsCategory, setGoalsCategory] = useState<string>('All');
 
-  // Automatically adjust initial scale based on window height to fit nicely
+  // Use ResizeObserver to dynamically adapt scale based on stage container width/height
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerHeight < 900) {
-        setScale(0.70);
-      } else {
-        setScale(0.80);
+    if (!stageRef.current) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        const pad = 40;
+        const scaleX = (width - pad) / 592;
+        const scaleY = (height - pad) / 840;
+        const fitScale = Math.max(0.25, Math.min(1.5, Math.round(Math.min(scaleX, scaleY) * 100) / 100));
+        setAutoScale(fitScale);
+        setScale(fitScale);
       }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    });
+    
+    resizeObserver.observe(stageRef.current);
+    return () => resizeObserver.disconnect();
   }, []);
 
   const handleZoomIn = () => {
@@ -143,15 +155,30 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   };
 
   const handleZoomOut = () => {
-    setScale(prev => Math.max(0.5, Math.round((prev - 0.05) * 100) / 100));
+    setScale(prev => Math.max(0.25, Math.round((prev - 0.05) * 100) / 100));
   };
 
   const handleResetZoom = () => {
-    setScale(0.80);
+    setScale(autoScale);
   };
 
-  const monthNum = activePage.num || '01';
-  const monthName = activePage.month || 'January';
+  const monthsData = [
+    { num: '01', name: 'January' },
+    { num: '02', name: 'February' },
+    { num: '03', name: 'March' },
+    { num: '04', name: 'April' },
+    { num: '05', name: 'May' },
+    { num: '06', name: 'June' },
+    { num: '07', name: 'July' },
+    { num: '08', name: 'August' },
+    { num: '09', name: 'September' },
+    { num: '10', name: 'October' },
+    { num: '11', name: 'November' },
+    { num: '12', name: 'December' }
+  ];
+
+  const monthNum = activePage.num || monthsData[selectedMonthIdx].num;
+  const monthName = activePage.month || monthsData[selectedMonthIdx].name;
 
   // Helper to fetch custom text
   const getVal = (key: string, fallback: string) => {
@@ -235,28 +262,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   return (
     <main className="flex-1 bg-[#121316] flex flex-col overflow-hidden relative select-none" id="workspace-main-panel">
       
-      {/* MOBILE TOGGLE BAR */}
-      <div className="lg:hidden flex border-b border-gray-800 shrink-0 bg-[#1C1E22]">
-        <button
-          onClick={() => setMobileMode('edit')}
-          className={`flex-1 py-3 text-center text-xs font-semibold flex items-center justify-center space-x-1.5 ${
-            mobileMode === 'edit' ? 'bg-[#151619] text-indigo-400 border-b-2 border-indigo-500' : 'text-gray-400'
-          }`}
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-          <span>Edit Month</span>
-        </button>
-        <button
-          onClick={() => setMobileMode('preview')}
-          className={`flex-1 py-3 text-center text-xs font-semibold flex items-center justify-center space-x-1.5 ${
-            mobileMode === 'preview' ? 'bg-[#151619] text-indigo-400 border-b-2 border-indigo-500' : 'text-gray-400'
-          }`}
-        >
-          <Eye className="h-3.5 w-3.5" />
-          <span>A5 Blueprint Preview</span>
-        </button>
-      </div>
-
       <div className="flex-1 flex overflow-hidden">
         
         {/* LEFT COLUMN: EDIT FORM (Responsive visibility) */}
@@ -270,8 +275,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               <div className="border-b border-gray-800/60 pb-3 flex justify-between items-center animate-fade-in">
                 <div>
                   <span className="text-[9px] font-bold text-indigo-400 tracking-widest uppercase block mb-0.5">Strategic Workspace</span>
-                  <h2 className="text-white text-base font-bold font-sans tracking-tight">Year Workspace</h2>
-                  <p className="text-[11px] text-gray-400">Plan and coordinate your strategic annual objectives.</p>
+                  <h2 className="text-white text-base font-bold font-sans tracking-tight">Year Plan</h2>
+                  <p className="text-[11px] text-gray-400">Listing goals, projects, and financial objectives for the year.</p>
                 </div>
                 <div className="flex space-x-1 items-center bg-gray-900 px-2.5 py-1 rounded border border-gray-800 shrink-0">
                   <span className="text-[10px] text-gray-400 font-mono">ID:</span>
@@ -279,210 +284,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                 </div>
               </div>
 
-              {/* SECTION 1: YEAR OVERVIEW */}
-              <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('overview')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Compass className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide">🌐 1. YEAR OVERVIEW & METRICS</span>
-                  </div>
-                  {expandedSections.overview ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
-
-                {expandedSections.overview && (
-                  <div className="space-y-3 pt-2 border-t border-gray-800/60">
-                    {/* General Stats */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div className="p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850">
-                        <label className="block text-[9px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">Operating Year</label>
-                        <input
-                          type="text"
-                          value={getVal('cover_year', '2027')}
-                          onChange={(e) => onCustomTextChange('cover_year', e.target.value)}
-                          className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <div className="p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850 flex flex-col justify-between">
-                        <div>
-                          <label className="block text-[9px] text-gray-400 font-semibold uppercase tracking-wider">Year Progress</label>
-                          <span className="text-sm font-bold text-emerald-400 font-mono mt-0.5 block">
-                            {(() => {
-                              const total = state.annualGoals?.length || 0;
-                              return total > 0 ? Math.round(state.annualGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / total) : 0;
-                            })()}% Complete
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#121316] h-1.5 rounded-full overflow-hidden mt-1">
-                          <div 
-                            className="bg-emerald-500 h-full transition-all duration-300"
-                            style={{ 
-                              width: `${(() => {
-                                const total = state.annualGoals?.length || 0;
-                                return total > 0 ? Math.round(state.annualGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / total) : 0;
-                              })()}%` 
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Theme and Mission Summary */}
-                    <div className="p-3 bg-[#1C1E22] rounded-lg border border-gray-850 space-y-2">
-                      <div>
-                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest block">Annual Theme</span>
-                        <p className="text-xs text-gray-200 font-medium font-sans mt-0.5">
-                          “{getVal('vision_words', 'SYSTEMS, DISCIPLINE, REVENUE')}”
-                        </p>
-                      </div>
-                      <div className="border-t border-gray-800/60 pt-2">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest block">Annual Mission</span>
-                        <p className="text-xs text-gray-300 font-sans leading-relaxed mt-0.5 italic">
-                          {getVal('horizon_mission', 'Launch version 2 of POS-Productivity toolkit and secure 3 strategic brand partners before Q3.')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Gateway Quick Jumps */}
-                    <div className="space-y-1.5">
-                      <label className="block text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Strategic Planning Sheets (Jump to View)</label>
-                      <div className="grid grid-cols-1 gap-1.5">
-                        {[
-                          { id: 2, name: 'Annual Vision & Goals', desc: 'Core life pillars & commitments', activeIcon: Target },
-                          { id: 3, name: '2027 Year Horizon Map', desc: '12-month calendar & major themes', activeIcon: Compass },
-                          { id: 4, name: 'Quarterly Strategy Roadmap', desc: 'Milestones & strategy breakdown', activeIcon: Layers },
-                          { id: 5, name: 'System Performance OKRs', desc: 'YTD index & mechanical scorecards', activeIcon: TrendingUp },
-                          { id: 22, name: 'Life Balance Wheel Review', desc: 'Mappable life categories wheel', activeIcon: Smile },
-                          { id: 23, name: 'Next Year Blueprint', desc: 'Continuous forward-looking blueprint', activeIcon: Sparkles },
-                          { id: 24, name: 'Year Review Summary', desc: 'Win tallies & annual retrospectives', activeIcon: FileText },
-                        ].map((sheet) => {
-                          const IconComp = sheet.activeIcon;
-                          const isActive = activePage.id === sheet.id;
-                          return (
-                            <button
-                              key={sheet.id}
-                              type="button"
-                              onClick={() => onPageSelect?.(sheet.id)}
-                              className={`w-full p-2.5 rounded-lg flex items-center justify-between text-left transition-all ${
-                                isActive 
-                                  ? 'bg-[#4f46e5]/15 border border-indigo-500/30 text-white font-semibold' 
-                                  : 'bg-[#1C1E22] border border-gray-850 hover:bg-[#22252a] text-gray-300'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-2.5">
-                                <IconComp className={`h-4 w-4 ${isActive ? 'text-indigo-400' : 'text-gray-400'}`} />
-                                <div>
-                                  <span className="text-xs font-semibold block leading-tight">{sheet.name}</span>
-                                  <span className="text-[10px] text-gray-500 block leading-tight mt-0.5">{sheet.desc}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <span className="text-[9px] text-gray-500 font-mono">P.{sheet.id}</span>
-                                <ArrowRight className="h-3 w-3 text-gray-500" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 2: VISION & ANNUAL MISSION */}
-              <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('vision')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Target className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide">🎯 2. VISION & ANNUAL MISSION</span>
-                  </div>
-                  {expandedSections.vision ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
-
-                {expandedSections.vision && (
-                  <div className="space-y-3 pt-2 border-t border-gray-800/60 text-xs">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1">Theme / Words of the Year (Comma Separated)</label>
-                      <input
-                        type="text"
-                        value={getVal('vision_words', 'SYSTEMS, DISCIPLINE, REVENUE')}
-                        onChange={(e) => onCustomTextChange('vision_words', e.target.value)}
-                        className="w-full bg-[#121316] border border-gray-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="e.g. SYSTEMS, DISCIPLINE, REVENUE"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1">Personal Vision (North Star Statement)</label>
-                      <textarea
-                        value={getVal('horizon_north_star', 'Become the type of person who executes flawlessly every day with standardized high-performance habits.')}
-                        onChange={(e) => onCustomTextChange('horizon_north_star', e.target.value)}
-                        className="w-full h-16 bg-[#121316] border border-gray-800 rounded p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-650 resize-none leading-relaxed"
-                        placeholder="Write down your overarching vision statement..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1">Annual Mission Statement</label>
-                      <textarea
-                        value={getVal('horizon_mission', 'Launch version 2 of POS-Productivity toolkit and secure 3 strategic brand partners before Q3.')}
-                        onChange={(e) => onCustomTextChange('horizon_mission', e.target.value)}
-                        className="w-full h-16 bg-[#121316] border border-gray-800 rounded p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-650 resize-none leading-relaxed"
-                        placeholder="State your clear annual target mission..."
-                      />
-                    </div>
-
-                    <div className="border-t border-gray-800/60 pt-2.5 space-y-2">
-                      <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Success Metrics (2x2 Grid)</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[9px] text-gray-500 font-semibold uppercase mb-0.5 font-sans">Revenue Target</label>
-                          <input
-                            type="text"
-                            value={getVal('vision_metric_revenue', '$150,000')}
-                            onChange={(e) => onCustomTextChange('vision_metric_revenue', e.target.value)}
-                            className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] text-gray-500 font-semibold uppercase mb-0.5 font-sans">Savings Goal</label>
-                          <input
-                            type="text"
-                            value={getVal('vision_metric_savings', '$45,000')}
-                            onChange={(e) => onCustomTextChange('vision_metric_savings', e.target.value)}
-                            className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] text-gray-500 font-semibold uppercase mb-0.5 font-sans">Fitness Standard</label>
-                          <input
-                            type="text"
-                            value={getVal('vision_metric_fitness', '< 12%')}
-                            onChange={(e) => onCustomTextChange('vision_metric_fitness', e.target.value)}
-                            className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] text-gray-500 font-semibold uppercase mb-0.5 font-sans">Travel Target</label>
-                          <input
-                            type="text"
-                            value={getVal('vision_metric_countries', '4 Visited')}
-                            onChange={(e) => onCustomTextChange('vision_metric_countries', e.target.value)}
-                            className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 3: ANNUAL COMMITMENT GOALS */}
+              {/* SECTION 1: WHAT TO ACHIEVE (ANNUAL GOALS) */}
               <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
                 <button 
                   onClick={() => toggleSection('goals')}
@@ -490,7 +292,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     <Target className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide font-sans">🏆 3. ANNUAL COMMITMENT GOALS</span>
+                    <span className="tracking-wide font-sans">🚀 1. WHAT TO ACHIEVE (ANNUAL GOALS)</span>
                   </div>
                   {expandedSections.goals ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
                 </button>
@@ -499,7 +301,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                   <div className="space-y-3 pt-2 border-t border-gray-800/60 text-xs">
                     {/* Category Selector Filter */}
                     <div className="flex flex-wrap gap-1.5 border-b border-gray-800/40 pb-2.5">
-                      {['All', 'Personal', 'Career', 'Business', 'Financial', 'Health', 'Learning', 'Relationships', 'Spiritual'].map((cat) => (
+                      {['All', 'Personal', 'Career', 'Business', 'Financial', 'Health', 'Learning', 'Relationships'].map((cat) => (
                         <button
                           key={cat}
                           type="button"
@@ -551,8 +353,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                                 updated[idx] = { ...updated[idx], milestone: e.target.value };
                                 onStateChange({ ...state, annualGoals: updated });
                               }}
-                              className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                              placeholder="Commitment Goal Description..."
+                              className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-indigo-500 focus:outline-none font-sans"
+                              placeholder="Goal description..."
                             />
 
                             {/* Slider Progress */}
@@ -576,7 +378,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                               />
                             </div>
 
-                            {/* Status, Target Date & Notes */}
+                            {/* Status & Target Date */}
                             <div className="grid grid-cols-2 gap-2 text-[10px]">
                               <div>
                                 <label className="block text-gray-500 mb-0.5 font-sans">Status</label>
@@ -611,25 +413,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                                 />
                               </div>
                             </div>
-
-                            <div>
-                              <textarea
-                                value={g.notes || ''}
-                                onChange={(e) => {
-                                  if (!onStateChange) return;
-                                  const updated = [...state.annualGoals];
-                                  updated[idx] = { ...updated[idx], notes: e.target.value };
-                                  onStateChange({ ...state, annualGoals: updated });
-                                }}
-                                className="w-full h-12 bg-[#121316] border border-gray-800 rounded p-1.5 text-[10px] text-gray-300 resize-none leading-relaxed font-sans focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                                placeholder="Goal Notes, KPI metrics or constraints..."
-                              />
-                            </div>
                           </div>
                         ))}
 
                       {state.annualGoals.filter(g => goalsCategory === 'All' || g.pillar?.toLowerCase() === goalsCategory.toLowerCase()).length === 0 && (
-                        <p className="text-center text-gray-500 py-4 font-sans italic text-[11px]">No goals declared in {goalsCategory}.</p>
+                        <p className="text-center text-gray-500 py-4 font-sans italic text-[11px]">No goals declared.</p>
                       )}
                     </div>
 
@@ -651,89 +439,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                       className="w-full py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 rounded-lg text-indigo-400 font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all"
                     >
                       <PlusCircle className="h-4 w-4" />
-                      <span>Add Commitment Goal {goalsCategory !== 'All' ? `(${goalsCategory})` : ''}</span>
+                      <span>Add Goal {goalsCategory !== 'All' ? `(${goalsCategory})` : ''}</span>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* SECTION 4: LIFE AREAS */}
-              <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('lifeAreas')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Smile className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide">🧭 4. LIFE AREAS (WHEEL OF LIFE)</span>
-                  </div>
-                  {expandedSections.lifeAreas ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
-
-                {expandedSections.lifeAreas && (
-                  <div className="space-y-3.5 pt-2 border-t border-gray-800/60 text-xs">
-                    <div className="grid grid-cols-2 gap-3 bg-[#1C1E22] p-2.5 rounded-lg border border-gray-850">
-                      {[
-                        { key: 'productivity', label: 'Productivity' },
-                        { key: 'happiness', label: 'Happiness' },
-                        { key: 'health', label: 'Health' },
-                        { key: 'financial', label: 'Financial' },
-                        { key: 'relationships', label: 'Relationships' },
-                        { key: 'growth', label: 'Growth' },
-                        { key: 'fun', label: 'Fun & Leisure' },
-                        { key: 'environment', label: 'Environment' }
-                      ].map(({ key, label }) => (
-                        <div key={key} className="space-y-1">
-                          <div className="flex justify-between items-center text-[10px]">
-                            <span className="text-gray-400 font-medium font-sans">{label}</span>
-                            <span className="font-mono text-indigo-400 font-bold">{(state.yearScores as any)[key] || 0}/10</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="10"
-                            step="1"
-                            value={(state.yearScores as any)[key] || 0}
-                            onChange={(e) => {
-                              if (!onStateChange) return;
-                              onStateChange({
-                                ...state,
-                                yearScores: {
-                                  ...state.yearScores,
-                                  [key]: parseInt(e.target.value)
-                                }
-                              });
-                            }}
-                            className="w-full accent-indigo-500 h-1 bg-gray-800 rounded cursor-pointer"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1 font-sans">Priority Review &amp; Strategic Focus Note</label>
-                      <textarea
-                        value={getVal('life_blueprint_priority', 'Pillar Alignments: Double down on physical training schedules to optimize sleep patterns, and scale automated testing blocks to avoid cognitive exhaustion.')}
-                        onChange={(e) => onCustomTextChange('life_blueprint_priority', e.target.value)}
-                        className="w-full h-16 bg-[#121316] border border-gray-800 rounded p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-650 resize-none leading-relaxed font-sans"
-                        placeholder="Define focus priorities to fix low scores in life areas..."
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850">
-                      <span className="text-[10px] text-gray-400 font-semibold font-sans">Blueprint Progress Ratio</span>
-                      <input
-                        type="text"
-                        value={getVal('life_year_progress_ratio', '76%')}
-                        onChange={(e) => onCustomTextChange('life_year_progress_ratio', e.target.value)}
-                        className="w-16 text-center bg-[#121316] border border-gray-800 rounded px-1.5 py-0.5 text-xs text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 5: ANNUAL PROJECTS OVERVIEW */}
+              {/* SECTION 2: ANNUAL PROJECTS */}
               <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
                 <button 
                   onClick={() => toggleSection('projects')}
@@ -741,297 +453,196 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     <Briefcase className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide font-sans">💼 5. ANNUAL PROJECTS OVERVIEW</span>
+                    <span className="tracking-wide font-sans">💼 2. ANNUAL PROJECTS</span>
                   </div>
                   {expandedSections.projects ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
                 </button>
 
                 {expandedSections.projects && (
                   <div className="space-y-3 pt-2 border-t border-gray-800/60 text-xs">
-                    <div className="space-y-2">
-                      {state.projects && state.projects.map((proj, idx) => (
-                        <div key={idx} className="p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850 flex items-center justify-between">
-                          <div>
-                            <span className="text-white font-semibold block text-xs font-sans">{proj.name || 'Unnamed Project'}</span>
-                            <span className="text-[10px] text-gray-500 font-mono">Due: {proj.due || 'N/A'}</span>
+                    {/* Projects list */}
+                    <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                      {(state.projects || []).map((proj, idx) => (
+                        <div key={idx} className="p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850 space-y-2 relative">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-gray-400">Project #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!onStateChange) return;
+                                const updated = state.projects.filter((_, i) => i !== idx);
+                                onStateChange({ ...state, projects: updated });
+                              }}
+                              className="text-gray-500 hover:text-rose-400 transition-colors p-1"
+                              title="Delete Project"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-                          <div className="text-right">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold block mb-1 font-mono uppercase ${
-                              proj.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                              proj.status === 'Blocked' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                              proj.status === 'Planning' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
-                              'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            }`}>
-                              {proj.status}
-                            </span>
-                            <span className="text-[10px] font-mono text-gray-400">{proj.pct || 0}% Done</span>
+
+                          {/* Name */}
+                          <div>
+                            <label className="block text-[9px] text-gray-500 mb-0.5">Project Name</label>
+                            <input
+                              type="text"
+                              value={proj.name}
+                              onChange={(e) => {
+                                if (!onStateChange) return;
+                                const updated = [...state.projects];
+                                updated[idx] = { ...updated[idx], name: e.target.value };
+                                onStateChange({ ...state, projects: updated });
+                              }}
+                              className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                              placeholder="Project name..."
+                            />
+                          </div>
+
+                          {/* Target / Progress */}
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div>
+                              <label className="block text-gray-500 mb-0.5">Target Date</label>
+                              <input
+                                type="text"
+                                value={proj.due}
+                                onChange={(e) => {
+                                  if (!onStateChange) return;
+                                  const updated = [...state.projects];
+                                  updated[idx] = { ...updated[idx], due: e.target.value };
+                                  onStateChange({ ...state, projects: updated });
+                                }}
+                                className="w-full bg-[#121316] border border-gray-800 rounded px-1.5 py-0.5 text-gray-300 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                                placeholder="e.g. Q2 / May"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 mb-0.5">Progress (%)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={proj.pct}
+                                onChange={(e) => {
+                                  if (!onStateChange) return;
+                                  const updated = [...state.projects];
+                                  updated[idx] = { ...updated[idx], pct: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) };
+                                  onStateChange({ ...state, projects: updated });
+                                }}
+                                className="w-full bg-[#121316] border border-gray-800 rounded px-1.5 py-0.5 text-gray-300 focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Status */}
+                          <div>
+                            <label className="block text-[9px] text-gray-500 mb-0.5">Status</label>
+                            <select
+                              value={proj.status}
+                              onChange={(e) => {
+                                if (!onStateChange) return;
+                                const updated = [...state.projects];
+                                updated[idx] = { ...updated[idx], status: e.target.value as any };
+                                onStateChange({ ...state, projects: updated });
+                              }}
+                              className="w-full bg-[#121316] border border-gray-800 rounded px-1.5 py-0.5 text-gray-300 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-[11px]"
+                            >
+                              <option value="Planning">Planning</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="Completed">Completed</option>
+                              <option value="Blocked">Blocked</option>
+                            </select>
                           </div>
                         </div>
                       ))}
+
+                      {(!state.projects || state.projects.length === 0) && (
+                        <p className="text-center text-gray-500 py-4 font-sans italic text-[11px]">No projects declared.</p>
+                      )}
                     </div>
 
+                    {/* Add Project Button */}
                     <button
                       type="button"
-                      onClick={() => onPageSelect?.(20)}
+                      onClick={() => {
+                        if (!onStateChange) return;
+                        const newProj = {
+                          name: '',
+                          due: 'Q2',
+                          status: 'Planning' as const,
+                          pct: 0
+                        };
+                        onStateChange({ ...state, projects: [...(state.projects || []), newProj] });
+                      }}
                       className="w-full py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 rounded-lg text-indigo-400 font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all"
                     >
-                      <span>Open Project Portfolio Workspace</span>
-                      <ArrowRight className="h-3 w-3" />
+                      <PlusCircle className="h-4 w-4" />
+                      <span>Add Project</span>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* SECTION 6: QUARTERLY PLANNING & ROADMAP */}
+              {/* SECTION 3: FINANCIAL GOALS */}
               <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('quarterly')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Layers className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide font-sans">📊 6. QUARTERLY PLANNING &amp; ROADMAP</span>
-                  </div>
-                  {expandedSections.quarterly ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
-
-                {expandedSections.quarterly && (
-                  <div className="space-y-3 pt-2 border-t border-gray-800/60 text-xs">
-                    {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => {
-                      const qKey = q.toLowerCase();
-                      return (
-                        <div key={q} className="p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850 space-y-2 animate-fade-in">
-                          <span className="font-bold text-indigo-400 text-xs block uppercase font-mono tracking-wider">{q} Strategy Sprint</span>
-                          
-                          <div>
-                            <label className="block text-[9px] text-gray-500 mb-0.5 uppercase font-semibold font-sans">Objective Focus</label>
-                            <input
-                              type="text"
-                              value={getVal(`${qKey}_focus`, q === 'Q1' ? 'Standardize core productivity systems and scale software pipelines.' : q === 'Q2' ? 'Launch SaaS platforms and build high-ticket brand pipelines.' : q === 'Q3' ? 'Refine operational margins & scale performance frameworks.' : 'Complete yearly blueprint audits & transition architectures.')}
-                              onChange={(e) => onCustomTextChange(`${qKey}_focus`, e.target.value)}
-                              className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-1.5 border-t border-gray-800/50 pt-1.5">
-                            <label className="block text-[9px] text-gray-500 uppercase font-semibold font-sans">Key Milestones</label>
-                            {[1, 2].map((num) => (
-                              <div key={num} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  checked={getVal(`${qKey}_m${num}_done`, 'false') === 'true'}
-                                  onChange={(e) => onCustomTextChange(`${qKey}_m${num}_done`, e.target.checked ? 'true' : 'false')}
-                                  className="accent-indigo-500 h-3.5 w-3.5 rounded bg-gray-900 border-gray-800 cursor-pointer"
-                                />
-                                <input
-                                  type="text"
-                                  value={getVal(`${qKey}_m${num}`, num === 1 ? `Deploy architectural system modules` : `Achieve targeted KPI checkpoints`)}
-                                  onChange={(e) => onCustomTextChange(`${qKey}_m${num}`, e.target.value)}
-                                  className="flex-1 bg-[#121316] border border-gray-800 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                                />
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="space-y-1 border-t border-gray-800/50 pt-1.5">
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-gray-500 uppercase font-semibold font-sans">Strategy Scorecard Progress</span>
-                              <span className="font-mono text-indigo-400 font-bold">{getVal(`${qKey}_status`, q === 'Q1' ? '75' : q === 'Q2' ? '40' : '0')}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={parseInt(getVal(`${qKey}_status`, q === 'Q1' ? '75' : q === 'Q2' ? '40' : '0'))}
-                              onChange={(e) => onCustomTextChange(`${qKey}_status`, e.target.value)}
-                              className="w-full accent-indigo-500 h-1 bg-gray-800 rounded cursor-pointer"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 7: ANNUAL CALENDAR */}
-              <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('calendar')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide font-sans">📅 7. ANNUAL CALENDAR NAVIGATION</span>
-                  </div>
-                  {expandedSections.calendar ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
-
-                {expandedSections.calendar && (
-                  <div className="space-y-2.5 pt-2 border-t border-gray-800/60 text-xs">
-                    <p className="text-[10px] text-gray-400 italic mb-2 leading-relaxed font-sans">
-                      Click any month below to instantly switch the Workspace to that Month's Dashboard:
-                    </p>
-                    <div className="grid grid-cols-3 gap-1.5 font-mono">
-                      {[
-                        { id: 6, name: 'Jan' },
-                        { id: 7, name: 'Feb' },
-                        { id: 8, name: 'Mar' },
-                        { id: 9, name: 'Apr' },
-                        { id: 10, name: 'May' },
-                        { id: 11, name: 'Jun' },
-                        { id: 12, name: 'Jul' },
-                        { id: 13, name: 'Aug' },
-                        { id: 14, name: 'Sep' },
-                        { id: 15, name: 'Oct' },
-                        { id: 16, name: 'Nov' },
-                        { id: 17, name: 'Dec' }
-                      ].map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => onPageSelect?.(m.id)}
-                          className="bg-[#1C1E22] hover:bg-[#4f46e5]/10 border border-gray-850 hover:border-indigo-500/30 p-2 rounded-lg text-center transition-all group font-mono"
-                        >
-                          <span className="text-gray-300 group-hover:text-white font-bold block text-xs">{m.name}</span>
-                          <span className="text-[9px] text-gray-500 block">P.{m.id}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 8: STRATEGIC KEY METRICS */}
-              <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('keyMetrics')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
-                  <div className="flex items-center space-x-2">
+                <div className="flex justify-between items-center w-full">
+                  <button 
+                    onClick={() => toggleSection('financial')}
+                    className="text-xs font-bold text-gray-200 flex items-center space-x-2 text-left focus:outline-none"
+                  >
                     <TrendingUp className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide font-sans">📈 8. STRATEGIC KEY METRICS</span>
-                  </div>
-                  {expandedSections.keyMetrics ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
-
-                {expandedSections.keyMetrics && (
-                  <div className="space-y-2 pt-2 border-t border-gray-800/60 text-xs">
-                    <div className="grid grid-cols-2 gap-2 text-center font-sans">
-                      <div className="bg-[#1C1E22] p-2.5 rounded-lg border border-gray-850">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase block leading-tight font-sans">Goals Cleared</span>
-                        <span className="text-sm font-bold text-white font-mono block mt-1">
-                          {state.annualGoals.filter(g => g.progress === 100).length} / {state.annualGoals.length}
-                        </span>
-                      </div>
-                      <div className="bg-[#1C1E22] p-2.5 rounded-lg border border-gray-850">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase block leading-tight font-sans">Active Projects</span>
-                        <span className="text-sm font-bold text-white font-mono block mt-1">
-                          {state.projects.filter(p => p.status === 'In Progress').length} Active
-                        </span>
-                      </div>
-                      <div className="bg-[#1C1E22] p-2.5 rounded-lg border border-gray-850">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase block leading-tight font-sans">Life Wheel Balance</span>
-                        <span className="text-sm font-bold text-white font-mono block mt-1">
-                          {(() => {
-                            const scores = Object.values(state.yearScores) as number[];
-                            const total = scores.reduce((sum, s) => sum + (Number(s) || 0), 0);
-                            const avg = total / (scores.length || 1);
-                            return avg.toFixed(1);
-                          })()}/10
-                        </span>
-                      </div>
-                      <div className="bg-[#1C1E22] p-2.5 rounded-lg border border-gray-850">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase block leading-tight font-sans">Sprints Achieved</span>
-                        <span className="text-sm font-bold text-white font-mono block mt-1">
-                          {(() => {
-                            let count = 0;
-                            ['q1', 'q2', 'q3', 'q4'].forEach(q => {
-                              if (getVal(`${q}_m1_done`, 'false') === 'true') count++;
-                              if (getVal(`${q}_m2_done`, 'false') === 'true') count++;
-                            });
-                            return count;
-                          })()} Milestones
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 9: YEAR REVIEW & RETROSPECTIVE */}
-              <div className="space-y-3 bg-[#151619] p-3.5 rounded-xl border border-gray-800/80 animate-fade-in">
-                <button 
-                  onClick={() => toggleSection('review')}
-                  className="w-full text-xs font-bold text-gray-200 flex items-center justify-between text-left focus:outline-none"
-                >
+                    <span className="tracking-wide font-sans">💵 3. FINANCIAL GOALS</span>
+                  </button>
                   <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-indigo-400" />
-                    <span className="tracking-wide font-sans">📝 9. YEAR REVIEW &amp; RETROSPECTIVE</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = getVal('hide_financial_goals', 'false') === 'true';
+                        onCustomTextChange('hide_financial_goals', current ? 'false' : 'true');
+                      }}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase border transition-all ${
+                        getVal('hide_financial_goals', 'false') === 'true'
+                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                      }`}
+                    >
+                      {getVal('hide_financial_goals', 'false') === 'true' ? 'Hidden' : 'Visible'}
+                    </button>
+                    <button 
+                      onClick={() => toggleSection('financial')}
+                      className="focus:outline-none"
+                    >
+                      {expandedSections.financial ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                    </button>
                   </div>
-                  {expandedSections.review ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                </button>
+                </div>
 
-                {expandedSections.review && (
+                {expandedSections.financial && (
                   <div className="space-y-3 pt-2 border-t border-gray-800/60 text-xs">
-                    <div className="space-y-2 bg-[#1C1E22] p-2.5 rounded-lg border border-gray-850 animate-fade-in">
-                      <span className="text-[10px] text-indigo-400 font-bold uppercase block tracking-wider font-sans">Achievements &amp; Wins</span>
-                      {[1, 2, 3].map((num) => (
-                        <div key={num} className="space-y-1 border-b border-gray-800/40 pb-1.5 last:border-0 last:pb-0">
-                          <label className="block text-[9px] text-gray-500 font-semibold mb-0.5 font-sans">Win #{num} Title</label>
-                          <input
-                            type="text"
-                            value={getVal(`review_win_${num}_title`, num === 1 ? 'Scaled Operational Margins & Business Revenue' : num === 2 ? 'Flawless Daily Routine Synchronization' : 'Advanced Architecture Certification Completed')}
-                            onChange={(e) => onCustomTextChange(`review_win_${num}_title`, e.target.value)}
-                            className="w-full bg-[#121316] border border-gray-800 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                          />
-                          <label className="block text-[9px] text-gray-500 font-semibold mb-0.5 font-sans">Win #{num} Details</label>
-                          <textarea
-                            value={getVal(`review_win_${num}_desc`, 'Completed targets successfully and verified vector output margins.')}
-                            onChange={(e) => onCustomTextChange(`review_win_${num}_desc`, e.target.value)}
-                            className="w-full h-10 bg-[#121316] border border-gray-800 rounded p-1.5 text-[10px] text-gray-300 resize-none leading-relaxed font-sans focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
+                    {getVal('hide_financial_goals', 'false') === 'true' && (
+                      <div className="p-2 bg-rose-950/20 border border-rose-900/30 rounded-lg text-[10px] text-rose-300 italic">
+                        ⚠️ This section is hidden on your printable page layout to reduce clutter. Toggle to "Visible" above to restore it.
+                      </div>
+                    )}
                     <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1 font-sans">Critical Blockades &amp; Challenges Solved</label>
-                      <textarea
-                        value={getVal('lessons_challenges', 'Technical Blockades: Resolved infinite loop rendering anomalies across preview canvases and structured D3 visualization hooks. Solved time-blocking friction in Q2.')}
-                        onChange={(e) => onCustomTextChange('lessons_challenges', e.target.value)}
-                        className="w-full h-16 bg-[#121316] border border-gray-800 rounded p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-650 resize-none leading-relaxed font-sans"
-                        placeholder="Detail major challenges and their direct solutions..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1 font-sans">Strategic Lessons &amp; Reflections</label>
-                      <textarea
-                        value={getVal('review_perspective', 'Systems over goals. Focus heavily on automated triggers and standardizing constraints rather than manual willpower. Keep cognitive stress low by blocking focus slots.')}
-                        onChange={(e) => onCustomTextChange('review_perspective', e.target.value)}
-                        className="w-full h-16 bg-[#121316] border border-gray-800 rounded p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-650 resize-none leading-relaxed font-sans"
-                        placeholder="Detail what the strategic year has taught you..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-semibold mb-1 font-sans">Preparation &amp; Future Commendation</label>
-                      <textarea
-                        value={getVal('review_commitment_text', 'I commit to scaling my operational structures further, maintaining strict boundaries for deep work blocks, and refining the personal operating systems framework daily.')}
-                        onChange={(e) => onCustomTextChange('review_commitment_text', e.target.value)}
-                        className="w-full h-16 bg-[#121316] border border-gray-800 rounded p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-650 resize-none leading-relaxed font-sans"
-                        placeholder="Write down future commitments or retrospective sign-offs..."
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center p-2.5 bg-[#1C1E22] rounded-lg border border-gray-850">
-                      <span className="text-[10px] text-gray-400 font-semibold font-sans">Signature Date</span>
+                      <label className="block text-[10px] text-gray-400 font-semibold mb-1">Annual Revenue Target</label>
                       <input
                         type="text"
-                        value={getVal('review_signature_date', '12 / 31 / 2027')}
-                        onChange={(e) => onCustomTextChange('review_signature_date', e.target.value)}
-                        className="w-32 text-center bg-[#121316] border border-gray-800 rounded px-1.5 py-0.5 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        value={getVal('vision_metric_revenue', '$150,000')}
+                        onChange={(e) => onCustomTextChange('vision_metric_revenue', e.target.value)}
+                        disabled={getVal('hide_financial_goals', 'false') === 'true'}
+                        className="w-full bg-[#121316] border border-gray-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono disabled:opacity-30 disabled:cursor-not-allowed"
+                        placeholder="e.g. $150,000"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-400 font-semibold mb-1">Annual Savings Goal</label>
+                      <input
+                        type="text"
+                        value={getVal('vision_metric_savings', '$45,000')}
+                        onChange={(e) => onCustomTextChange('vision_metric_savings', e.target.value)}
+                        disabled={getVal('hide_financial_goals', 'false') === 'true'}
+                        className="w-full bg-[#121316] border border-gray-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono disabled:opacity-30 disabled:cursor-not-allowed"
+                        placeholder="e.g. $45,000"
                       />
                     </div>
                   </div>
@@ -1434,7 +1045,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                             return grid.slice(weekStartIdx, weekStartIdx + 7);
                           };
 
-                          const currentMonthIdx = 6; // July
+                          const currentMonthIdx = selectedMonthIdx;
                           const daysList = getWeekDays(activeWeek, currentMonthIdx);
                           const dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
                           
@@ -2084,9 +1695,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
                 <div className="flex items-center justify-between pt-1">
                   <button 
-                    disabled={activePage.id <= 6}
+                    disabled={selectedMonthIdx <= 0}
                     onClick={() => {
-                      onPageSelect?.(activePage.id - 1);
+                      setSelectedMonthIdx(selectedMonthIdx - 1);
                       setMonthTab('overview');
                     }}
                     className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg border border-gray-800 disabled:opacity-30 disabled:pointer-events-none transition flex items-center space-x-1"
@@ -2102,9 +1713,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                   </div>
 
                   <button 
-                    disabled={activePage.id >= 17}
+                    disabled={selectedMonthIdx >= 11}
                     onClick={() => {
-                      onPageSelect?.(activePage.id + 1);
+                      setSelectedMonthIdx(selectedMonthIdx + 1);
                       setMonthTab('overview');
                     }}
                     className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg border border-gray-800 disabled:opacity-30 disabled:pointer-events-none transition flex items-center space-x-1"
@@ -3091,17 +2702,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
-
-            <div className="h-3 w-px bg-gray-700"></div>
-
-            <div className="flex items-center space-x-1.5 text-gray-400">
-              <FileText className="h-3.5 w-3.5 text-indigo-400" />
-              <span className="font-mono text-[11px]">148 × 210 mm (A5 Portrait)</span>
-            </div>
           </div>
 
           {/* Vector Preview Sheet Stage */}
-          <div className="flex-1 w-full overflow-auto custom-scrollbar flex items-center justify-center p-8 relative">
+          <div ref={stageRef} className="flex-1 w-full overflow-auto custom-scrollbar flex items-center justify-center p-8 relative">
             <motion.div
               key={activePage.id}
               initial={{ opacity: 0, y: 15 }}
@@ -3128,6 +2732,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({
         </div>
 
       </div>
+
+      {/* Modern Responsive Floating Mode FAB */}
+      <button
+        onClick={() => setMobileMode(prev => prev === 'edit' ? 'preview' : 'edit')}
+        className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 hover:bg-indigo-700 text-white p-3.5 rounded-full shadow-2xl border border-indigo-500/30 flex items-center justify-center transition-all active:scale-95"
+        title={mobileMode === 'edit' ? 'Switch to Preview' : 'Switch to Edit'}
+      >
+        {mobileMode === 'edit' ? <Eye className="h-5 w-5" /> : <SlidersHorizontal className="h-5 w-5" />}
+      </button>
 
     </main>
   );

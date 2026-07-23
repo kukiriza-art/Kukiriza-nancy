@@ -28,6 +28,7 @@ interface AIDrawerProps {
   selectedProjectId?: number | null;
   projectTab?: string;
   selectedDate?: number;
+  theme?: any;
 }
 
 export const AIDrawer: React.FC<AIDrawerProps> = ({
@@ -43,8 +44,26 @@ export const AIDrawer: React.FC<AIDrawerProps> = ({
   monthTab,
   selectedProjectId,
   projectTab,
-  selectedDate
+  selectedDate,
+  theme
 }) => {
+  const effectiveTheme = theme || {
+    primary: '#6366f1',
+    text: 'text-indigo-400',
+    bg: 'bg-indigo-500',
+    hoverBg: 'hover:bg-indigo-600',
+    border: 'border-[#e4e4e7]/10',
+    hoverBorder: 'hover:border-[#6366f1]',
+    shadow: 'shadow-[#6366f1]/20',
+    accentTextHover: 'group-hover:text-[#6366f1]',
+    focusRing: 'focus:ring-[#6366f1]',
+    focusBorder: 'focus:border-indigo-500',
+    fromTo: 'from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400',
+    btnBg: 'bg-indigo-600 hover:bg-indigo-500',
+    badgeText: 'text-indigo-300',
+    badgeBg: 'bg-indigo-600/10',
+  };
+
   const [chatHistory, setChatHistory] = useState<Array<{ role: 'user' | 'assistant' | 'error'; text: string }>>([
     {
       role: 'assistant',
@@ -221,11 +240,11 @@ Try clicking one of the **dynamic preset actions** below or type your custom gui
         {/* Drawer Header */}
         <div className="p-4 border-b border-gray-800 bg-[#22252A] flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2">
-            <div className="bg-indigo-600/10 text-indigo-400 p-2 rounded-lg">
-              <Sparkles className="h-4 w-4 text-indigo-400" />
+            <div className={`${effectiveTheme.badgeBg} ${effectiveTheme.text} p-2 rounded-lg`}>
+              <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-[9px] font-bold text-indigo-400 tracking-widest uppercase block">
+              <span className={`text-[9px] font-bold ${effectiveTheme.text} tracking-widest uppercase block`}>
                 ACTIVE AI WORKSPACE
               </span>
               <h3 className="text-white font-bold text-sm tracking-tight">
@@ -243,7 +262,7 @@ Try clicking one of the **dynamic preset actions** below or type your custom gui
         </div>
 
         {/* Current Page Sync Context Notification bar */}
-        <div className="px-4 py-2 bg-indigo-950/40 border-b border-indigo-900/30 text-[10px] text-indigo-300 flex items-center space-x-1.5 shrink-0">
+        <div className={`px-4 py-2 ${effectiveTheme.badgeBg} border-b border-gray-800/40 text-[10px] ${effectiveTheme.text} flex items-center space-x-1.5 shrink-0`}>
           <Bot className="h-3.5 w-3.5" />
           <span className="font-semibold">Synced Context:</span>
           <span className="font-bold underline truncate">{activePage.title}</span>
@@ -262,14 +281,14 @@ Try clicking one of the **dynamic preset actions** below or type your custom gui
               >
                 <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs font-medium leading-relaxed ${
                   isUser 
-                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                    ? `${effectiveTheme.btnBg} text-white rounded-tr-none`
                     : isError
                       ? 'bg-red-950/40 border border-red-900/30 text-red-200 rounded-tl-none'
                       : 'bg-[#151619] border border-gray-800 text-gray-200 rounded-tl-none'
                 }`}>
                   {/* Simplistic markdown translation for bold keys */}
                   <p className="whitespace-pre-wrap">
-                    {msg.text.split('**').map((chunk, i) => i % 2 === 1 ? <strong key={i} className="font-extrabold text-indigo-300">{chunk}</strong> : chunk)}
+                    {msg.text.split('**').map((chunk, i) => i % 2 === 1 ? <strong key={i} className={`font-extrabold ${effectiveTheme.text}`}>{chunk}</strong> : chunk)}
                   </p>
                 </div>
                 <span className="text-[9px] text-gray-500 mt-1 uppercase font-bold tracking-wider px-1">
@@ -281,7 +300,7 @@ Try clicking one of the **dynamic preset actions** below or type your custom gui
 
           {isCopilotLoading && (
             <div className="flex flex-col items-start">
-              <div className="bg-[#151619] border border-gray-800 rounded-xl px-4 py-3 rounded-tl-none flex items-center space-x-3 text-xs text-indigo-300">
+              <div className={`bg-[#151619] border border-gray-800 rounded-xl px-4 py-3 rounded-tl-none flex items-center space-x-3 text-xs ${effectiveTheme.text}`}>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="font-medium animate-pulse">Gemini is rewriting vectors...</span>
               </div>
@@ -301,7 +320,7 @@ Try clicking one of the **dynamic preset actions** below or type your custom gui
                 key={idx}
                 onClick={() => handleCopilotSubmit(preset.prompt)}
                 disabled={isCopilotLoading}
-                className="text-[10px] bg-[#1C1E22] hover:bg-indigo-600/10 border border-gray-800 hover:border-indigo-500/30 text-gray-300 hover:text-indigo-300 px-2.5 py-1.5 rounded-md transition text-left shrink-0 max-w-full truncate disabled:opacity-50"
+                className={`text-[10px] bg-[#1C1E22] hover:${effectiveTheme.badgeBg} border border-gray-800 hover:${effectiveTheme.border} text-gray-300 hover:${effectiveTheme.text} px-2.5 py-1.5 rounded-md transition text-left shrink-0 max-w-full truncate disabled:opacity-50`}
               >
                 {preset.label}
               </button>
@@ -324,12 +343,12 @@ Try clicking one of the **dynamic preset actions** below or type your custom gui
               onChange={(e) => setInputPrompt(e.target.value)}
               disabled={isCopilotLoading}
               placeholder={`Ask to schedule, optimize OKRs...`}
-              className="flex-1 bg-[#121316] border border-gray-800 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 font-sans"
+              className={`flex-1 bg-[#121316] border border-gray-800 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:${effectiveTheme.focusBorder} focus:ring-2 focus:${effectiveTheme.focusRing}/20 disabled:opacity-60 font-sans`}
             />
             <button
               type="submit"
               disabled={!inputPrompt.trim() || isCopilotLoading}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-800 text-white disabled:text-gray-500 p-2.5 rounded-xl transition shadow-lg disabled:shadow-none shadow-indigo-600/15"
+              className={`${effectiveTheme.btnBg} text-white disabled:bg-gray-800 disabled:text-gray-500 p-2.5 rounded-xl transition shadow-lg disabled:shadow-none`}
               aria-label="Send message"
             >
               <Send className="h-4 w-4" />

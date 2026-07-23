@@ -1,11 +1,60 @@
 import { PageConfig, PlannerState } from '../types';
 
+function renderWrappedTextOrLines(
+  text: string, 
+  x: number, 
+  y: number, 
+  lineHeight: number, 
+  maxLines: number, 
+  lineWidth: number, 
+  fontFamily: string, 
+  fontSize: number, 
+  color: string, 
+  fontWeight: string = "500",
+  isItalic: boolean = false
+): string {
+  if (!text || text.trim() === '') {
+    // Render elegant lined writing space
+    let linesSvg = '';
+    for (let i = 0; i < maxLines; i++) {
+      const lineY = y + i * lineHeight + fontSize;
+      linesSvg += `<line x1="${x}" y1="${lineY}" x2="${x + lineWidth}" y2="${lineY}" stroke="#E6E3DB" stroke-width="0.75" />\n`;
+    }
+    return linesSvg;
+  }
+
+  // Wrap words based on estimated character width
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+  const maxChars = Math.max(5, Math.floor(lineWidth / (fontSize * 0.52)));
+
+  for (const word of words) {
+    if ((currentLine + ' ' + word).trim().length <= maxChars) {
+      currentLine = (currentLine + ' ' + word).trim();
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  let tspanSvg = `<text x="${x}" y="${y + fontSize - 2}" font-family="${fontFamily}" font-size="${fontSize}" fill="${color}" font-weight="${fontWeight}" ${isItalic ? 'font-style="italic"' : ''}>`;
+  lines.slice(0, maxLines).forEach((line, i) => {
+    tspanSvg += `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${line}</tspan>`;
+  });
+  tspanSvg += `</text>`;
+  return tspanSvg;
+}
+
 /**
  * High-Fidelity SVG Vector Generator
  * Renders pristine A5 portrait print-ready vector pages that exactly match the Personal OS v2.0 design framework.
  */
 export function generateSVGString(page: PageConfig, state: PlannerState): string {
-  const width = 592; // A5 equivalent width
+  const width = 598; // A5 equivalent width
   const height = 840; // A5 equivalent height
 
   // Font typography definitions
@@ -113,123 +162,183 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
     }
 
     case 'annual_vision': {
+      // Fetch dynamic lists from state
+      const goals = state.annualGoals || [];
+      const projects = state.projects || [];
+
+      const rev = getText('vision_metric_revenue', '$150,000');
+      const sav = getText('vision_metric_savings', '$45,000');
+      const hideFinancial = getText('hide_financial_goals', 'false') === 'true';
+
       svgContent += `
         <!-- Title -->
-        <text x="40" y="105" font-family="${fontMontserrat}" font-weight="800" font-size="18" fill="#0E2240" letter-spacing="-0.5">Annual Vision &amp; Goals</text>
-        <text x="40" y="120" font-family="${fontPlayfair}" font-style="italic" font-size="9.5" fill="#5C6B73">Declare your primary targets across key pillars of life and operation.</text>
+        <text x="40" y="105" font-family="${fontMontserrat}" font-weight="800" font-size="18" fill="#0E2240" letter-spacing="-0.5">Year Plan</text>
+        <text x="40" y="120" font-family="${fontPlayfair}" font-style="italic" font-size="9.5" fill="#5C6B73">Listing goals, projects, and financial objectives for the year.</text>
 
-        <!-- Left Table Block: TOP ANNUAL COMMITMENTS -->
+        <!-- Left Column Card: WHAT I WANT TO ACHIEVE THIS YEAR -->
         <g transform="translate(40, 145)">
-          <rect width="335" height="495" rx="6" fill="#FFFFFF" stroke="#E6E3DB" stroke-width="1" />
+          <rect width="335" height="650" rx="6" fill="#FFFFFF" stroke="#E6E3DB" stroke-width="1" />
           
-          <!-- Table Title -->
-          <g transform="translate(15, 18)">
-            <!-- List Icon SVG -->
+          <!-- Table Header/Title -->
+          <g transform="translate(15, 20)">
             <line x1="0" y1="2" x2="8" y2="2" stroke="#0E2240" stroke-width="1.5" />
             <line x1="0" y1="5" x2="8" y2="5" stroke="#0E2240" stroke-width="1.5" />
             <line x1="0" y1="8" x2="8" y2="8" stroke="#0E2240" stroke-width="1.5" />
-            <text x="14" y="8" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">TOP ANNUAL COMMITMENTS</text>
+            <text x="14" y="8" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">ANNUAL TARGETS &amp; GOALS</text>
           </g>
 
-          <!-- Table Header -->
+          <!-- Table Headers -->
           <g transform="translate(15, 45)">
-            <text x="0" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">PRIORITY</text>
-            <text x="45" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">COMMITMENT GOAL DESCRIPTION</text>
-            <text x="215" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">DEADLINE</text>
-            <text x="275" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">STATUS</text>
+            <text x="0" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">ID</text>
+            <text x="35" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">WHAT TO ACHIEVE THIS YEAR</text>
+            <text x="215" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">TARGET</text>
+            <text x="270" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" letter-spacing="0.5">PROGRESS</text>
             <line x1="0" y1="18" x2="305" y2="18" stroke="#0E2240" stroke-width="1" />
           </g>
       `;
 
-      const comms = [
-        { id: '01', desc: 'Scale annual business revenue to targets', date: 'Q4', stat: 'Active', color: '#D97706' },
-        { id: '02', desc: 'Maintain sub 12% body fat & athletic standard', date: 'Ongoing', stat: 'Active', color: '#D97706' },
-        { id: '03', desc: 'Read 24 business, tech & psychology books', date: 'Monthly', stat: '25% Complete', color: '#10B981' },
-        { id: '04', desc: 'Complete Advanced System Architecture Course', date: 'Q2 End', stat: 'Planned', color: '#6B7280' }
-      ];
+      // Loop over up to 11 goals to perfectly fill 650px height
+      const maxGoalsToShow = 11;
+      for (let i = 0; i < maxGoalsToShow; i++) {
+        const goal = goals[i];
+        const y = 80 + i * 50;
 
-      comms.forEach((c, idx) => {
-        const y = 92 + idx * 44;
-        svgContent += `
-          <g transform="translate(15, ${y})">
-            <!-- Row background highlight -->
-            <rect x="-10" y="-12" width="325" height="34" rx="4" fill="${idx % 2 === 0 ? '#FAF9F6' : 'transparent'}" />
-            
-            <text x="0" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="9" fill="#0E2240">${c.id}</text>
-            <text x="45" y="10" font-family="${fontInter}" font-size="9.5" fill="#22252A" font-weight="600">${c.desc}</text>
-            <text x="215" y="10" font-family="${fontInter}" font-size="9.5" fill="#5C6B73" font-weight="500">${c.date}</text>
-            <text x="275" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="${c.color}">${c.stat}</text>
-            <line x1="0" y1="20" x2="305" y2="20" stroke="#E6E3DB" stroke-width="0.5" />
-          </g>
-        `;
-      });
+        if (goal) {
+          const goalId = String(i + 1).padStart(2, '0');
+          // Handle long milestone text safely (truncate if > 28 chars for beauty)
+          const desc = goal.milestone.length > 28 ? goal.milestone.substring(0, 26) + '...' : goal.milestone;
+          const target = goal.targetDate || 'Q4';
+          const statusVal = goal.status || 'Planned';
+          const progressPct = goal.progress || 0;
 
-      // Right Column Panels: SUCCESS METRICS & WORDS OF THE YEAR
-      const rev = getText('vision_metric_revenue', '$150,000');
-      const sav = getText('vision_metric_savings', '$45,000');
-      const fit = getText('vision_metric_fitness', '< 12%');
-      const ctr = getText('vision_metric_countries', '4 Visited');
-      const words = getText('vision_words', 'SYSTEMS, DISCIPLINE, REVENUE').split(',').map(s => s.trim());
+          // Decide tag color based on status
+          let statusColor = '#6B7280'; // gray
+          if (statusVal === 'Completed') statusColor = '#10B981'; // emerald
+          else if (statusVal === 'In Progress') statusColor = '#D97706'; // amber
+          else if (statusVal === 'Blocked') statusColor = '#EF4444'; // rose
+
+          svgContent += `
+            <g transform="translate(15, ${y})">
+              <rect x="-10" y="-12" width="325" height="42" rx="4" fill="${i % 2 === 0 ? '#FAF9F6' : 'transparent'}" />
+              
+              <text x="0" y="16" font-family="${fontMontserrat}" font-weight="700" font-size="9" fill="#0E2240">${goalId}</text>
+              <text x="35" y="16" font-family="${fontInter}" font-size="9.5" fill="#22252A" font-weight="600">${desc}</text>
+              <text x="215" y="16" font-family="${fontInter}" font-size="9.5" fill="#5C6B73" font-weight="500">${target}</text>
+              
+              <!-- Progress indicator & Status -->
+              <text x="270" y="12" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="${statusColor}">${progressPct}%</text>
+              <text x="270" y="24" font-family="${fontInter}" font-size="7" fill="#8C92AC" font-weight="600" letter-spacing="0.2">${statusVal.toUpperCase()}</text>
+              
+              <line x1="0" y1="34" x2="305" y2="34" stroke="#E6E3DB" stroke-width="0.5" />
+            </g>
+          `;
+        } else {
+          // Empty placeholder row
+          svgContent += `
+            <g transform="translate(15, ${y})">
+              <text x="0" y="16" font-family="${fontMontserrat}" font-weight="700" font-size="9" fill="#8C92AC" opacity="0.3">${String(i + 1).padStart(2, '0')}</text>
+              <text x="35" y="16" font-family="${fontInter}" font-style="italic" font-size="9" fill="#8C92AC" opacity="0.3">Empty target slot</text>
+              <line x1="0" y1="34" x2="305" y2="34" stroke="#E6E3DB" stroke-width="0.25" opacity="0.5" />
+            </g>
+          `;
+        }
+      }
 
       svgContent += `
-        </g> <!-- end top commitments -->
+        </g> <!-- End Left Column -->
+      `;
 
-        <!-- Success Metrics Card -->
-        <g transform="translate(390, 145)">
-          <rect width="162" height="155" rx="6" fill="#FFFFFF" stroke="#E6E3DB" stroke-width="1" />
-          
-          <!-- Title -->
-          <path d="M 15 18 L 22 13 L 28 17 L 35 11" fill="none" stroke="#0E2240" stroke-width="1.5" />
-          <text x="42" y="18" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">SUCCESS METRICS</text>
-          
-          <!-- 2x2 Grid -->
-          <!-- Cell 1 -->
-          <rect x="10" y="32" width="67" height="52" rx="4" fill="#FAF9F6" />
-          <text x="16" y="44" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC">REVENUE TARGET</text>
-          <text x="16" y="61" font-family="monospace" font-size="10.5" font-weight="700" fill="#0E2240">${rev}</text>
+      if (!hideFinancial) {
+        svgContent += `
+          <!-- Right Column Top: FINANCIAL GOALS -->
+          <g transform="translate(395, 145)">
+            <rect width="163" height="200" rx="6" fill="#FFFFFF" stroke="#E6E3DB" stroke-width="1" />
+            
+            <!-- Title -->
+            <g transform="translate(15, 18)">
+              <path d="M0 5 L4 2 L8 5 L12 1" fill="none" stroke="#0E2240" stroke-width="1.5" />
+              <text x="18" y="8" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">FINANCIAL GOALS</text>
+            </g>
 
-          <!-- Cell 2 -->
-          <rect x="83" y="32" width="69" height="52" rx="4" fill="#FAF9F6" />
-          <text x="89" y="44" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC">SAVINGS GOAL</text>
-          <text x="89" y="61" font-family="monospace" font-size="10.5" font-weight="700" fill="#0E2240">${sav}</text>
+            <!-- Metric 1: Revenue -->
+            <rect x="12" y="38" width="139" height="65" rx="4" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
+            <text x="22" y="54" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC" letter-spacing="0.5">REVENUE TARGET</text>
+            <text x="22" y="74" font-family="monospace" font-size="14" font-weight="800" fill="#0E2240">${rev}</text>
+            <text x="22" y="88" font-family="${fontInter}" font-size="7" font-weight="500" fill="#8C92AC">Gross targeted operations</text>
 
-          <!-- Cell 3 -->
-          <rect x="10" y="90" width="67" height="52" rx="4" fill="#FAF9F6" />
-          <text x="16" y="102" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC">FITNESS (BF%)</text>
-          <text x="16" y="119" font-family="monospace" font-size="10.5" font-weight="700" fill="#0E2240">${fit}</text>
-
-          <!-- Cell 4 -->
-          <rect x="83" y="90" width="69" height="52" rx="4" fill="#FAF9F6" />
-          <text x="89" y="102" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC">COUNTRIES</text>
-          <text x="89" y="119" font-family="monospace" font-size="10.5" font-weight="700" fill="#0E2240">${ctr}</text>
-        </g>
-
-        <!-- Words of the Year Card -->
-        <g transform="translate(390, 315)">
-          <rect width="162" height="325" rx="6" fill="#FFFFFF" stroke="#E6E3DB" stroke-width="1" />
-          
-          <!-- Title -->
-          <text x="15" y="24" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">“ WORDS OF THE YEAR</text>
-          <line x1="15" y1="34" x2="147" y2="34" stroke="#FAF9F6" stroke-width="1" />
-          
-          <!-- Tags rendering -->
-          <g transform="translate(15, 45)">
-            ${words.map((w, i) => `
-              <g transform="translate(0, ${i * 30})">
-                <rect width="84" height="20" rx="10" fill="#0E2240" opacity="0.08" />
-                <rect width="84" height="20" rx="10" fill="none" stroke="#0E2240" stroke-width="0.75" />
-                <text x="42" y="13" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#0E2240" text-anchor="middle" letter-spacing="0.5">${w.toUpperCase()}</text>
-              </g>
-            `).join('')}
+            <!-- Metric 2: Savings -->
+            <rect x="12" y="115" width="139" height="65" rx="4" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
+            <text x="22" y="131" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC" letter-spacing="0.5">SAVINGS GOAL</text>
+            <text x="22" y="151" font-family="monospace" font-size="14" font-weight="800" fill="#0E2240">${sav}</text>
+            <text x="22" y="165" font-family="${fontInter}" font-size="7" font-weight="500" fill="#8C92AC">Retained reserve benchmark</text>
           </g>
-        </g>
+        `;
+      }
+
+      const projectsY = hideFinancial ? 145 : 365;
+      const projectsH = hideFinancial ? 650 : 430;
+      const maxProjectsToShow = hideFinancial ? 9 : 6;
+
+      svgContent += `
+        <!-- Right Column Bottom: ANNUAL PROJECTS -->
+        <g transform="translate(395, ${projectsY})">
+          <rect width="163" height="${projectsH}" rx="6" fill="#FFFFFF" stroke="#E6E3DB" stroke-width="1" />
+          
+          <!-- Title -->
+          <g transform="translate(15, 20)">
+            <rect x="0" y="0" width="8" height="8" rx="1.5" fill="#0E2240" />
+            <text x="14" y="8" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">ANNUAL PROJECTS</text>
+          </g>
+      `;
+
+      // Loop over projects (up to maxProjectsToShow items to fit nicely)
+      for (let j = 0; j < maxProjectsToShow; j++) {
+        const proj = projects[j];
+        const y = 42 + j * 62;
+
+        if (proj) {
+          // Determine status color & indicator
+          let statusColor = '#6B7280';
+          if (proj.status === 'Completed') statusColor = '#10B981';
+          else if (proj.status === 'In Progress') statusColor = '#3F51B5';
+          else if (proj.status === 'Blocked') statusColor = '#EF4444';
+
+          const projName = proj.name.length > 22 ? proj.name.substring(0, 20) + '...' : proj.name;
+
+          svgContent += `
+            <g transform="translate(15, ${y})">
+              <!-- Project text details -->
+              <text x="0" y="14" font-family="${fontInter}" font-weight="700" font-size="9" fill="#22252A">${projName}</text>
+              <text x="0" y="27" font-family="monospace" font-size="7.5" fill="#8C92AC" font-weight="600">${proj.due}</text>
+              <text x="133" y="27" font-family="${fontMontserrat}" font-weight="700" font-size="8" fill="${statusColor}" text-anchor="end">${proj.pct}%</text>
+
+              <!-- Custom Mini Progress Bar -->
+              <rect x="0" y="34" width="133" height="3" rx="1.5" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
+              <rect x="0" y="34" width="${Math.min(133, Math.max(0, (proj.pct / 100) * 133))}" height="3" rx="1.5" fill="${statusColor}" />
+              
+              <line x1="0" y1="48" x2="133" y2="48" stroke="#E6E3DB" stroke-width="0.5" opacity="0.6" />
+            </g>
+          `;
+        } else {
+          // Empty project placeholder row
+          svgContent += `
+            <g transform="translate(15, ${y})">
+              <text x="0" y="20" font-family="${fontInter}" font-style="italic" font-size="9" fill="#8C92AC" opacity="0.3">Empty project slot</text>
+              <line x1="0" y1="48" x2="133" y2="48" stroke="#E6E3DB" stroke-width="0.25" opacity="0.5" />
+            </g>
+          `;
+        }
+      }
+
+      svgContent += `
+        </g> <!-- End Right Column Bottom -->
       `;
       break;
     }
 
     case 'year_horizon': {
-      const northStar = getText('horizon_north_star', 'Become the type of person who executes flawlessly every day with standardized high-performance habits.');
-      const mission = getText('horizon_mission', 'Launch version 2 of POS-Productivity toolkit and secure 3 strategic brand partners before Q3.');
+      const northStar = getText('horizon_north_star', '');
+      const mission = getText('horizon_mission', '');
 
       svgContent += `
         <!-- Title -->
@@ -299,37 +408,31 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
           <line x1="15" y1="34" x2="147" y2="34" stroke="#0E2240" stroke-width="1.2" />
 
           <!-- Quote block -->
-          <text x="15" y="56" font-family="${fontPlayfair}" font-style="italic" font-size="10.5" fill="#0E2240" font-weight="500">
-            <tspan x="15" dy="0">"Become the type of person</tspan>
-            <tspan x="15" dy="16">who executes flawlessly every</tspan>
-            <tspan x="15" dy="16">day with standardized high-</tspan>
-            <tspan x="15" dy="16">performance habits."</tspan>
-          </text>
+          <g transform="translate(0, 52)">
+            ${renderWrappedTextOrLines(northStar, 15, 0, 16, 5, 132, fontPlayfair, 10, "#0E2240", "500", true)}
+          </g>
 
           <!-- YEAR MISSION title -->
-          <g transform="translate(15, 140)">
+          <g transform="translate(15, 162)">
             <path d="M 0 0 L 8 -5 L 16 0 L 16 12 L 0 12 Z" fill="#0E2240" />
             <text x="24" y="10" font-family="${fontMontserrat}" font-weight="700" font-size="8" fill="#0E2240" letter-spacing="1">YEAR MISSION</text>
           </g>
 
           <!-- Year mission text wrapped -->
-          <text x="15" y="175" font-family="${fontInter}" font-size="9.5" fill="#5C6B73" font-weight="500">
-            <tspan x="15" dy="0">Launch version 2 of POS-</tspan>
-            <tspan x="15" dy="16">Productivity toolkit and</tspan>
-            <tspan x="15" dy="16">secure 3 strategic brand</tspan>
-            <tspan x="15" dy="16">partners before Q3.</tspan>
-          </text>
+          <g transform="translate(0, 185)">
+            ${renderWrappedTextOrLines(mission, 15, 0, 15, 10, 132, fontInter, 9, "#5C6B73")}
+          </g>
         </g>
       `;
       break;
     }
 
     case 'projects_portfolio': {
-      const activeP = getText('projects_stat_active', '5 Projects');
-      const compP = getText('projects_stat_completed', '3 Projects');
-      const delP = getText('projects_stat_delayed', '1 Project');
-      const rate = getText('projects_stat_rate', '72%');
-      const qFocus = getText('projects_quarter_focus', 'REVENUE SYSTEM DEPLOYMENT');
+      const activeP = getText('projects_stat_active', '—');
+      const compP = getText('projects_stat_completed', '—');
+      const delP = getText('projects_stat_delayed', '—');
+      const rate = getText('projects_stat_rate', '—');
+      const qFocus = getText('projects_quarter_focus', '');
 
       svgContent += `
         <!-- Title -->
@@ -358,15 +461,13 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
             <text x="146" y="26" font-family="${fontInter}" font-weight="700" font-size="7.5" fill="#10B981" text-anchor="end">High Priority</text>
 
             <!-- Project Title -->
-            <text x="12" y="52" font-family="${fontMontserrat}" font-weight="700" font-size="10" fill="#0E2240">${proj.name}</text>
+            <text x="12" y="52" font-family="${fontMontserrat}" font-weight="700" font-size="10" fill="#0E2240">${proj.name || 'Empty project slot'}</text>
             <line x1="12" y1="62" x2="146" y2="62" stroke="#E6E3DB" stroke-width="0.5" />
 
             <!-- Description body lines -->
-            <text x="12" y="80" font-family="${fontInter}" font-size="8.5" fill="#5C6B73" font-weight="500">
-              <tspan x="12" dy="0">Execute targeted strategic</tspan>
-              <tspan x="12" dy="14">milestones and optimize</tspan>
-              <tspan x="12" dy="14">landing execution vectors.</tspan>
-            </text>
+            <g transform="translate(0, 72)">
+              ${renderWrappedTextOrLines("", 12, 0, 18, 3, 134, fontInter, 8.5, "#5C6B73")}
+            </g>
 
             <!-- Progress Block -->
             <text x="12" y="145" font-family="${fontMontserrat}" font-weight="700" font-size="6.5" fill="#8C92AC" letter-spacing="0.5">PROGRESS</text>
@@ -412,8 +513,9 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
           <rect width="162" height="135" rx="6" fill="#0E2240" />
           
           <text x="81" y="44" font-family="${fontMontserrat}" font-weight="700" font-size="7.5" fill="#8C92AC" text-anchor="middle" letter-spacing="1">CURRENT QUARTER FOCUS</text>
-          <text x="81" y="72" font-family="${fontMontserrat}" font-weight="800" font-size="10" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">REVENUE SYSTEM</text>
-          <text x="81" y="90" font-family="${fontMontserrat}" font-weight="800" font-size="10" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">DEPLOYMENT</text>
+          <g transform="translate(0, 64)">
+            ${renderWrappedTextOrLines(qFocus, 10, 0, 16, 3, 142, fontMontserrat, 9.5, "#FFFFFF", "800")}
+          </g>
         </g>
       `;
       break;
@@ -429,17 +531,17 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
         <g transform="translate(40, 145)">
           ${[1, 2, 3, 4].map((q, idx) => {
             const colX = idx * 131;
-            const focus = getText(`q${q}_focus`, q === 1 ? 'Core infrastructure setup, app logic design, client proposal iterations.' : q === 2 ? 'Core system deployment, initial product beta launch, performance testing.' : q === 3 ? 'Active monetization scaling, business development & pipeline execution.' : 'Comprehensive systems audits, strategic analysis, next-year plan preparation.');
-            const m1 = getText(`q${q}_m1`, q === 1 ? 'Tech stack selection' : q === 2 ? 'Beta user testing' : q === 3 ? 'Scale advertising spend' : 'Year-end portfolio review');
-            const m2 = getText(`q${q}_m2`, q === 1 ? 'Client contract signed' : q === 2 ? 'Production deployment' : q === 3 ? 'Affiliate partnership integration' : 'Financial projection sync');
-            const m1_done = getText(`q${q}_m1_done`, q <= 2 ? 'true' : 'false') === 'true';
-            const m2_done = getText(`q${q}_m2_done`, q === 1 ? 'true' : 'false') === 'true';
-            const status = getText(`q${q}_status`, q === 1 ? '100' : q === 2 ? '45' : '0');
-            const barW = 100 * (parseFloat(status) / 100);
+            const focus = getText(`q${q}_focus`, '');
+            const m1 = getText(`q${q}_m1`, '');
+            const m2 = getText(`q${q}_m2`, '');
+            const m1_done = getText(`q${q}_m1_done`, 'false') === 'true';
+            const m2_done = getText(`q${q}_m2_done`, 'false') === 'true';
+            const status = getText(`q${q}_status`, '0');
+            const barW = 100 * (parseFloat(status) / 100 || 0);
 
             return `
               <g transform="translate(${colX}, 0)">
-                <rect width="123" height="495" rx="6" fill="#FFFFFF" stroke="#0E2240" stroke-dasharray="${q > 1 ? 'none' : 'none'}" stroke-width="${q === 1 ? '1.5' : '1'}" />
+                <rect width="123" height="495" rx="6" fill="#FFFFFF" stroke="#0E2240" stroke-width="${q === 1 ? '1.5' : '1'}" />
                 
                 <!-- Quarter Header -->
                 <rect x="0" y="0" width="123" height="25" rx="4" fill="#0E2240" />
@@ -450,11 +552,9 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
                 <text x="12" y="44" font-family="${fontMontserrat}" font-weight="700" font-size="6.5" fill="#8C92AC" letter-spacing="0.5">FOCUS OBJECTIVE</text>
                 
                 <!-- Focus body text wrapped -->
-                <text x="12" y="60" font-family="${fontInter}" font-size="8" fill="#22252A" font-weight="600">
-                  <tspan x="12" dy="0">${focus.split(' ').slice(0, 3).join(' ')}</tspan>
-                  <tspan x="12" dy="12">${focus.split(' ').slice(3, 6).join(' ')}</tspan>
-                  <tspan x="12" dy="12">${focus.split(' ').slice(6).join(' ')}</tspan>
-                </text>
+                <g transform="translate(0, 56)">
+                  ${renderWrappedTextOrLines(focus, 12, 0, 14, 4, 100, fontInter, 8, "#22252A", "600")}
+                </g>
 
                 <line x1="12" y1="120" x2="111" y2="120" stroke="#E6E3DB" stroke-width="0.5" />
 
@@ -466,20 +566,18 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
                   <!-- Checkbox -->
                   <rect width="8" height="8" rx="2" fill="${m1_done ? '#0E2240' : 'none'}" stroke="#0E2240" stroke-width="0.75" />
                   ${m1_done ? '<path d="M 2 4 L 4 6 L 7 2" stroke="#FFFFFF" stroke-width="1" fill="none" />' : ''}
-                  <text x="14" y="7" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="500">
-                    <tspan x="14" dy="0">${m1.split(' ').slice(0,2).join(' ')}</tspan>
-                    <tspan x="14" dy="10">${m1.split(' ').slice(2).join(' ')}</tspan>
-                  </text>
+                  <g transform="translate(0, -2)">
+                    ${renderWrappedTextOrLines(m1, 14, 0, 11, 4, 85, fontInter, 8, "#5C6B73")}
+                  </g>
                 </g>
 
                 <!-- Milestone 2 -->
-                <g transform="translate(12, 210)">
+                <g transform="translate(12, 215)">
                   <rect width="8" height="8" rx="2" fill="${m2_done ? '#0E2240' : 'none'}" stroke="#0E2240" stroke-width="0.75" />
                   ${m2_done ? '<path d="M 2 4 L 4 6 L 7 2" stroke="#FFFFFF" stroke-width="1" fill="none" />' : ''}
-                  <text x="14" y="7" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="500">
-                    <tspan x="14" dy="0">${m2.split(' ').slice(0,2).join(' ')}</tspan>
-                    <tspan x="14" dy="10">${m2.split(' ').slice(2).join(' ')}</tspan>
-                  </text>
+                  <g transform="translate(0, -2)">
+                    ${renderWrappedTextOrLines(m2, 14, 0, 11, 4, 85, fontInter, 8, "#5C6B73")}
+                  </g>
                 </g>
 
                 <!-- Status Progress bar at bottom -->
@@ -611,12 +709,12 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
     }
 
     case 'daily_command_center': {
-      const dailyMiss = getText('daily_mission', 'Finalize functional database architecture and deploy to secure staging platform.');
-      const sleep = getText('daily_sleep', '7.5 Hours');
-      const water = getText('daily_water', '3 Liters');
-      const energy = getText('daily_energy', 'Optimal');
-      const dfocus = getText('daily_focus', 'High');
-      const completion = getText('daily_completion_score', '85%');
+      const dailyMiss = getText('daily_mission', '');
+      const sleep = getText('daily_sleep', '');
+      const water = getText('daily_water', '');
+      const energy = getText('daily_energy', '');
+      const dfocus = getText('daily_focus', '');
+      const completion = getText('daily_completion_score', '');
 
       svgContent += `
         <!-- Title -->
@@ -693,8 +791,8 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
 
           <!-- 3 Actions -->
           ${[1, 2, 3].map((num, i) => {
-            const act = getText(`daily_act_${num}`, num === 1 ? 'Execute Database Dry Runs' : num === 2 ? 'Complete Team Standup Loop' : 'Update Budget Pipeline Tracker');
-            const done = getText(`daily_act_${num}_done`, num <= 2 ? 'true' : 'false') === 'true';
+            const act = getText(`daily_act_${num}`, '');
+            const done = getText(`daily_act_${num}_done`, 'false') === 'true';
             return `
               <g transform="translate(15, ${52 + i * 44})">
                 <rect width="10" height="10" rx="3.5" fill="${done ? '#0E2240' : 'none'}" stroke="#0E2240" stroke-width="0.75" />
@@ -730,10 +828,10 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
         <g transform="translate(40, 145)">
           ${[1, 2, 3, 4, 5].map((w, idx) => {
             const colX = idx * 104;
-            const focus = getText(`w${w}_focus`, w === 1 ? 'Prototype architecture, draft schema patterns, establish endpoints.' : w === 2 ? 'Design system, core UI grids implementation, logic functions.' : w === 3 ? 'Integrate API connections, run system audits, optimize slow queries.' : w === 4 ? 'Perform production dry runs, launch closed testing, document code.' : 'Initiate strategic retrospectives, plan next cycle metrics and sprints.');
-            const p1 = getText(`w${w}_p1`, w === 1 ? 'DB Setup' : w === 2 ? 'Component Kit' : w === 3 ? 'API Connection' : w === 4 ? 'Secure Testing' : 'Retrospective Loop');
-            const p2 = getText(`w${w}_p2`, w === 1 ? 'Auth Module' : w === 2 ? 'Responsive Layout' : w === 3 ? 'Query Speed Check' : w === 4 ? 'Code Review' : 'Next Cycle Setup');
-            const status = getText(`w${w}_status`, w <= 2 ? 'Completed' : w === 3 ? 'In Progress' : 'Planned');
+            const focus = getText(`w${w}_focus`, '');
+            const p1 = getText(`w${w}_p1`, '');
+            const p2 = getText(`w${w}_p2`, '');
+            const status = getText(`w${w}_status`, 'Planned');
             const statusColor = status === 'Completed' ? '#10B981' : status === 'In Progress' ? '#D97706' : '#6B7280';
 
             return `
@@ -748,18 +846,20 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
                 <text x="12" y="48" font-family="${fontMontserrat}" font-weight="700" font-size="6.5" fill="#8C92AC">WEEKLY FOCUS</text>
                 
                 <!-- Focus text wrapped -->
-                <text x="12" y="62" font-family="${fontInter}" font-size="7.5" fill="#22252A" font-weight="600">
-                  <tspan x="12" dy="0">${focus.split(' ').slice(0, 3).join(' ')}</tspan>
-                  <tspan x="12" dy="12">${focus.split(' ').slice(3, 6).join(' ')}</tspan>
-                  <tspan x="12" dy="12">${focus.split(' ').slice(6).join(' ')}</tspan>
-                </text>
+                <g transform="translate(0, 56)">
+                  ${renderWrappedTextOrLines(focus, 12, 0, 12, 5, 76, fontInter, 7.5, "#22252A", "600")}
+                </g>
 
                 <line x1="12" y1="130" x2="88" y2="130" stroke="#E6E3DB" stroke-width="0.5" />
 
                 <!-- MAIN PRIORITIES -->
                 <text x="12" y="150" font-family="${fontMontserrat}" font-weight="700" font-size="6.5" fill="#8C92AC">MAIN PRIORITIES</text>
-                <text x="12" y="172" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="700">- ${p1}</text>
-                <text x="12" y="192" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="700">- ${p2}</text>
+                <g transform="translate(0, 160)">
+                  ${renderWrappedTextOrLines(p1 ? `• ${p1}` : '', 12, 0, 12, 3, 76, fontInter, 8, "#5C6B73", "700")}
+                </g>
+                <g transform="translate(0, 210)">
+                  ${renderWrappedTextOrLines(p2 ? `• ${p2}` : '', 12, 0, 12, 3, 76, fontInter, 8, "#5C6B73", "700")}
+                </g>
 
                 <!-- Status pill at bottom -->
                 <g transform="translate(12, 450)">
@@ -1044,11 +1144,11 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
     }
 
     case 'life_balance_wheel': {
-      const breakdownHealth = getText('life_breakdown_health', '8.5 / 10');
-      const breakdownCareer = getText('life_breakdown_career', '7.0 / 10');
-      const breakdownFinance = getText('life_breakdown_finance', '6.5 / 10');
-      const priority = getText('life_blueprint_priority', 'Address shortfalls in the Finance sector immediately by executing secondary revenue pipelines and capping discretionary outflows.');
-      const ratio = getText('life_year_progress_ratio', '76%');
+      const breakdownHealth = getText('life_breakdown_health', '—');
+      const breakdownCareer = getText('life_breakdown_career', '—');
+      const breakdownFinance = getText('life_breakdown_finance', '—');
+      const priority = getText('life_blueprint_priority', '');
+      const ratio = getText('life_year_progress_ratio', '0%');
 
       // Wheel calculations
       const cx = 175;
@@ -1139,17 +1239,9 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
           <text x="15" y="24" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240" letter-spacing="1">📋 ACTION BLUEPRINT PRIORITY</text>
           <line x1="15" y1="34" x2="207" y2="34" stroke="#FAF9F6" stroke-width="1" />
 
-          <text x="15" y="55" font-family="${fontInter}" font-size="9" fill="#5C6B73" font-weight="600">
-            <tspan x="15" dy="0">Address shortfalls in the Finance sector</tspan>
-            <tspan x="15" dy="16">immediately by executing secondary revenue</tspan>
-            <tspan x="15" dy="16">pipelines and capping discretionary outflows.</tspan>
-          </text>
-
-          <!-- Ruled helper handwriting lines -->
-          ${Array.from({length: 4}, (_, i) => `
-            <line x1="15" y1="${120 + i * 26}" x2="207" y2="${120 + i * 26}" stroke="#FAF9F6" stroke-width="1.5" />
-            <line x1="15" y1="${121 + i * 26}" x2="207" y2="${121 + i * 26}" stroke="#E6E3DB" stroke-width="0.5" />
-          `).join('')}
+          <g transform="translate(0, 52)">
+            ${renderWrappedTextOrLines(priority, 15, 0, 18, 9, 192, fontInter, 9, "#5C6B73", "600")}
+          </g>
         </g>
 
         <!-- Bottom Year Completed Ratio badge -->
@@ -1162,20 +1254,20 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
     }
 
     case 'next_year_blueprint': {
-      const personal = getText('next_personal_health', 'Establish solid foundations for physical stamina. Transition into specialized endurance parameters.');
-      const relations = getText('next_relations_community', 'Devote specific hours to mastermind networks, strategic client cohorts, and value-driven local ecosystems.');
-      const career = getText('next_career_finance', 'Expand target market penetration. Maximize passive dividend assets, automate secondary portfolio growth.');
+      const personal = getText('next_personal_health', '');
+      const relations = getText('next_relations_community', '');
+      const career = getText('next_career_finance', '');
 
-      const p_i1 = getText('next_personal_intent_1', 'Complete marathon cycle');
-      const p_i2 = getText('next_personal_intent_2', 'Adopt clean pescatarian plan');
-      const r_i1 = getText('next_relations_intent_1', 'Launch strategic community');
-      const r_i2 = getText('next_relations_intent_2', 'Plan bi-monthly sync meets');
-      const c_i1 = getText('next_career_intent_1', 'Create $50k asset pool');
-      const c_i2 = getText('next_career_intent_2', 'Author comprehensive ebook');
+      const p_i1 = getText('next_personal_intent_1', '');
+      const p_i2 = getText('next_personal_intent_2', '');
+      const r_i1 = getText('next_relations_intent_1', '');
+      const r_i2 = getText('next_relations_intent_2', '');
+      const c_i1 = getText('next_career_intent_1', '');
+      const c_i2 = getText('next_career_intent_2', '');
 
-      const p_status = getText('next_personal_status', 'TARGETED');
-      const r_status = getText('next_relations_status', 'TARGETED');
-      const c_status = getText('next_career_status', 'DECLARED');
+      const p_status = getText('next_personal_status', 'PLANNED');
+      const r_status = getText('next_relations_status', 'PLANNED');
+      const c_status = getText('next_career_status', 'PLANNED');
 
       svgContent += `
         <!-- Title -->
@@ -1202,11 +1294,9 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
                 <line x1="15" y1="34" x2="145" y2="34" stroke="#E6E3DB" stroke-width="0.75" />
 
                 <!-- Description Block -->
-                <text x="15" y="56" font-family="${fontInter}" font-size="8.5" fill="#5C6B73" font-weight="500">
-                  <tspan x="15" dy="0">${col.text.split(' ').slice(0, 4).join(' ')}</tspan>
-                  <tspan x="15" dy="14">${col.text.split(' ').slice(4, 8).join(' ')}</tspan>
-                  <tspan x="15" dy="14">${col.text.split(' ').slice(8).join(' ')}</tspan>
-                </text>
+                <g transform="translate(0, 48)">
+                  ${renderWrappedTextOrLines(col.text, 15, 0, 15, 4, 130, fontInter, 8.5, "#5C6B73")}
+                </g>
 
                 <line x1="15" y1="120" x2="145" y2="120" stroke="#E6E3DB" stroke-width="0.5" stroke-dasharray="2 2" />
 
@@ -1216,7 +1306,9 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
                 ${col.intents.map((intent, i) => `
                   <g transform="translate(15, ${155 + i * 35})">
                     <rect width="8" height="8" rx="2" fill="none" stroke="#0E2240" stroke-width="0.75" />
-                    <text x="14" y="7" font-family="${fontInter}" font-size="8" fill="#22252A" font-weight="600">${intent}</text>
+                    <g transform="translate(0, -2)">
+                      ${renderWrappedTextOrLines(intent, 14, 0, 11, 2, 115, fontInter, 8, "#22252A", "600")}
+                    </g>
                   </g>
                 `).join('')}
 
@@ -1231,16 +1323,21 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
     }
 
     case 'year_review_summary': {
-      const win1_t = getText('review_win_1_title', 'System Framework Architecture Complete:');
-      const win1_d = getText('review_win_1_desc', 'Deployed v2 system prototype 3 weeks ahead of scheduled timeline.');
-      const win2_t = getText('review_win_2_title', 'Revenue Milestone Secured:');
-      const win2_d = getText('review_win_2_desc', 'Unlocked additional secondary client pipeline values by Q3.');
-      const win3_t = getText('review_win_3_title', 'Athletic Strategy Optimization:');
-      const win3_d = getText('review_win_3_desc', 'Achieved target index body parameter configurations.');
+      const win1_t = getText('review_win_1_title', '');
+      const win1_d = getText('review_win_1_desc', '');
+      const win2_t = getText('review_win_2_title', '');
+      const win2_d = getText('review_win_2_desc', '');
+      const win3_t = getText('review_win_3_title', '');
+      const win3_d = getText('review_win_3_desc', '');
 
-      const perspective = getText('review_perspective', 'RETROSPECTIVE PERSPECTIVE: Establishing automated planning loops significantly improved consistent execution discipline across multiple projects.');
-      const signature_text = getText('review_commitment_text', 'I hereby sign off this operational cycle and commit to executing the next set of strategies with identical rigor.');
-      const signature_date = getText('review_signature_date', '12 / 31 / 2027');
+      const perspective = getText('review_perspective', '');
+      const signature_text = getText('review_commitment_text', '');
+      const signature_date = getText('review_signature_date', '');
+
+      const productivityScore = state.yearScores.productivity > 0 ? `${state.yearScores.productivity}%` : '—%';
+      const healthScore = state.yearScores.health > 0 ? `${state.yearScores.health}%` : '—%';
+      const happinessScore = state.yearScores.happiness > 0 ? `${state.yearScores.happiness}%` : '—%';
+      const financialScore = state.yearScores.financial > 0 ? `${state.yearScores.financial}%` : '—%';
 
       svgContent += `
         <!-- Title -->
@@ -1260,37 +1357,47 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
             <rect width="10" height="10" rx="3.5" fill="#2E6F40" />
             <path d="M 2 5 L 4 7 L 8 2" stroke="#FFFFFF" stroke-width="1.2" fill="none" />
             
-            <text x="18" y="9" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240">${win1_t}</text>
-            <text x="18" y="22" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="500">${win1_d}</text>
+            <g transform="translate(18, 0)">
+              ${renderWrappedTextOrLines(win1_t, 0, 9, 14, 1, 230, fontMontserrat, 8.5, "#0E2240", "700")}
+            </g>
+            <g transform="translate(18, 22)">
+              ${renderWrappedTextOrLines(win1_d, 0, 0, 14, 2, 230, fontInter, 8, "#5C6B73")}
+            </g>
           </g>
 
           <!-- Win 2 -->
-          <g transform="translate(15, 110)">
+          <g transform="translate(15, 130)">
             <rect width="10" height="10" rx="3.5" fill="#2E6F40" />
             <path d="M 2 5 L 4 7 L 8 2" stroke="#FFFFFF" stroke-width="1.2" fill="none" />
             
-            <text x="18" y="9" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240">${win2_t}</text>
-            <text x="18" y="22" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="500">${win2_d}</text>
+            <g transform="translate(18, 0)">
+              ${renderWrappedTextOrLines(win2_t, 0, 9, 14, 1, 230, fontMontserrat, 8.5, "#0E2240", "700")}
+            </g>
+            <g transform="translate(18, 22)">
+              ${renderWrappedTextOrLines(win2_d, 0, 0, 14, 2, 230, fontInter, 8, "#5C6B73")}
+            </g>
           </g>
 
           <!-- Win 3 -->
-          <g transform="translate(15, 168)">
+          <g transform="translate(15, 210)">
             <rect width="10" height="10" rx="3.5" fill="#2E6F40" />
             <path d="M 2 5 L 4 7 L 8 2" stroke="#FFFFFF" stroke-width="1.2" fill="none" />
             
-            <text x="18" y="9" font-family="${fontMontserrat}" font-weight="700" font-size="8.5" fill="#0E2240">${win3_t}</text>
-            <text x="18" y="22" font-family="${fontInter}" font-size="8" fill="#5C6B73" font-weight="500">${win3_d}</text>
+            <g transform="translate(18, 0)">
+              ${renderWrappedTextOrLines(win3_t, 0, 9, 14, 1, 230, fontMontserrat, 8.5, "#0E2240", "700")}
+            </g>
+            <g transform="translate(18, 22)">
+              ${renderWrappedTextOrLines(win3_d, 0, 0, 14, 2, 230, fontInter, 8, "#5C6B73")}
+            </g>
           </g>
 
           <!-- Divider line before retrospective note -->
-          <line x1="15" y1="410" x2="270" y2="410" stroke="#E6E3DB" stroke-width="0.5" />
+          <line x1="15" y1="360" x2="270" y2="360" stroke="#E6E3DB" stroke-width="0.5" />
 
           <!-- Wrapped Retrospective Note at bottom -->
-          <text x="15" y="432" font-family="${fontPlayfair}" font-style="italic" font-size="8.5" fill="#22252A">
-            <tspan x="15" dy="0">RETROSPECTIVE PERSPECTIVE: Establishing automated</tspan>
-            <tspan x="15" dy="14">planning loops significantly improved consistent execution</tspan>
-            <tspan x="15" dy="14">discipline across multiple projects.</tspan>
-          </text>
+          <g transform="translate(0, 375)">
+            ${renderWrappedTextOrLines(perspective, 15, 0, 16, 6, 255, fontPlayfair, 8.5, "#22252A", "normal", true)}
+          </g>
         </g>
 
         <!-- Right Column Cards -->
@@ -1302,22 +1409,22 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
 
           <!-- Score Card 1: Productivity -->
           <rect x="15" y="44" width="86" height="42" rx="4" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
-          <text x="58" y="56" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC" text-anchor="middle">65%</text>
+          <text x="58" y="58" font-family="${fontMontserrat}" font-size="7" font-weight="700" fill="#8C92AC" text-anchor="middle">${productivityScore}</text>
           <text x="58" y="74" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#0E2240" text-anchor="middle">PRODUCTIVITY</text>
 
           <!-- Score Card 2: Health & Stamina -->
           <rect x="111" y="44" width="86" height="42" rx="4" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
-          <text x="154" y="56" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#10B981" text-anchor="middle">85%</text>
+          <text x="154" y="58" font-family="${fontMontserrat}" font-size="7" font-weight="700" fill="#10B981" text-anchor="middle">${healthScore}</text>
           <text x="154" y="74" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#0E2240" text-anchor="middle">HEALTH &amp; STAMINA</text>
 
           <!-- Score Card 3: Happiness Rating -->
           <rect x="15" y="96" width="86" height="42" rx="4" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
-          <text x="58" y="108" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#8C92AC" text-anchor="middle">70%</text>
+          <text x="58" y="110" font-family="${fontMontserrat}" font-size="7" font-weight="700" fill="#8C92AC" text-anchor="middle">${happinessScore}</text>
           <text x="58" y="126" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#0E2240" text-anchor="middle">HAPPINESS RATING</text>
 
           <!-- Score Card 4: Financial Targets -->
           <rect x="111" y="96" width="86" height="42" rx="4" fill="#FAF9F6" stroke="#E6E3DB" stroke-width="0.5" />
-          <text x="154" y="108" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#D97706" text-anchor="middle">55%</text>
+          <text x="154" y="110" font-family="${fontMontserrat}" font-size="7" font-weight="700" fill="#D97706" text-anchor="middle">${financialScore}</text>
           <text x="154" y="126" font-family="${fontMontserrat}" font-size="6.5" font-weight="700" fill="#0E2240" text-anchor="middle">FINANCIAL TARGETS</text>
         </g>
 
@@ -1328,17 +1435,15 @@ export function generateSVGString(page: PageConfig, state: PlannerState): string
           <line x1="15" y1="34" x2="197" y2="34" stroke="#FAF9F6" stroke-width="1" />
 
           <!-- Commitment body wrapped -->
-          <text x="15" y="55" font-family="${fontInter}" font-size="8.5" fill="#5C6B73" font-weight="600">
-            <tspan x="15" dy="0">${signature_text.split(' ').slice(0, 5).join(' ')}</tspan>
-            <tspan x="15" dy="14">${signature_text.split(' ').slice(5, 10).join(' ')}</tspan>
-            <tspan x="15" dy="14">${signature_text.split(' ').slice(10).join(' ')}</tspan>
-          </text>
+          <g transform="translate(0, 48)">
+            ${renderWrappedTextOrLines(signature_text, 15, 0, 16, 11, 182, fontInter, 8.5, "#5C6B73", "600")}
+          </g>
 
           <!-- Signature Line and Seal -->
           <line x1="15" y1="280" x2="110" y2="280" stroke="#0E2240" stroke-width="1.2" />
           <text x="15" y="294" font-family="${fontMontserrat}" font-weight="700" font-size="7" fill="#8C92AC">[Signature]</text>
 
-          <text x="135" y="280" font-family="${fontMontserrat}" font-weight="700" font-size="7" fill="#8C92AC">DATE: ${signature_date}</text>
+          <text x="135" y="280" font-family="${fontMontserrat}" font-weight="700" font-size="7" fill="#8C92AC">DATE: ${signature_date || '  /  /    '}</text>
         </g>
       `;
       break;

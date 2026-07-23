@@ -22,7 +22,8 @@ import {
   Sliders, 
   ArrowLeft,
   LayoutGrid,
-  Plus
+  Plus,
+  Menu
 } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY_STATE = 'canva_planner_state_v2';
@@ -34,14 +35,178 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'planner'>('dashboard');
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAIDrawerOpen, setIsAIDrawerOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+
+  // Lifted Personal OS preferences
+  const [operatorName, setOperatorName] = useState<string>(() => {
+    return localStorage.getItem('execute_os_operator_name') || '';
+  });
+
+  const [soundFXEnabled, setSoundFXEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('execute_os_sound_enabled') !== 'false';
+  });
+
+  const [themeAccent, setThemeAccent] = useState<string>(() => {
+    return localStorage.getItem('execute_os_theme_accent') || 'indigo';
+  });
+
+  // Helper mapping for current system theme colors
+  const getThemeColors = (accent: string) => {
+    switch (accent) {
+      case 'emerald':
+        return {
+          primary: '#10b981',
+          text: 'text-emerald-400',
+          bg: 'bg-emerald-500',
+          hoverBg: 'hover:bg-emerald-600',
+          border: 'border-emerald-500/20',
+          hoverBorder: 'hover:border-emerald-500',
+          shadow: 'shadow-emerald-600/10',
+          accentTextHover: 'group-hover:text-emerald-400',
+          focusRing: 'focus:ring-emerald-500',
+          focusBorder: 'focus:border-emerald-500',
+          fromTo: 'from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400',
+          btnBg: 'bg-emerald-600 hover:bg-emerald-500',
+          badgeText: 'text-emerald-300',
+          badgeBg: 'bg-emerald-600/10',
+        };
+      case 'violet':
+        return {
+          primary: '#8b5cf6',
+          text: 'text-violet-400',
+          bg: 'bg-violet-500',
+          hoverBg: 'hover:bg-violet-600',
+          border: 'border-violet-500/20',
+          hoverBorder: 'hover:border-violet-500',
+          shadow: 'shadow-violet-600/10',
+          accentTextHover: 'group-hover:text-violet-400',
+          focusRing: 'focus:ring-violet-500',
+          focusBorder: 'focus:border-violet-500',
+          fromTo: 'from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400',
+          btnBg: 'bg-violet-600 hover:bg-violet-500',
+          badgeText: 'text-violet-300',
+          badgeBg: 'bg-violet-600/10',
+        };
+      case 'amber':
+        return {
+          primary: '#f59e0b',
+          text: 'text-amber-400',
+          bg: 'bg-amber-500',
+          hoverBg: 'hover:bg-amber-600',
+          border: 'border-amber-500/20',
+          hoverBorder: 'hover:border-amber-500',
+          shadow: 'shadow-amber-600/10',
+          accentTextHover: 'group-hover:text-amber-400',
+          focusRing: 'focus:ring-amber-500',
+          focusBorder: 'focus:border-amber-500',
+          fromTo: 'from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400',
+          btnBg: 'bg-amber-600 hover:bg-amber-500',
+          badgeText: 'text-amber-300',
+          badgeBg: 'bg-amber-600/10',
+        };
+      case 'indigo':
+      default:
+        return {
+          primary: '#6366f1',
+          text: 'text-indigo-400',
+          bg: 'bg-indigo-500',
+          hoverBg: 'hover:bg-indigo-600',
+          border: 'border-[#e4e4e7]/10',
+          hoverBorder: 'hover:border-[#6366f1]',
+          shadow: 'shadow-[#6366f1]/20',
+          accentTextHover: 'group-hover:text-[#6366f1]',
+          focusRing: 'focus:ring-[#6366f1]',
+          focusBorder: 'focus:border-indigo-500',
+          fromTo: 'from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400',
+          btnBg: 'bg-indigo-600 hover:bg-indigo-500',
+          badgeText: 'text-indigo-300',
+          badgeBg: 'bg-indigo-600/10',
+        };
+    }
+  };
+
+  const theme = getThemeColors(themeAccent);
+
+  // Persist changes to localStorage on updates
+  const updateOperatorName = (name: string) => {
+    setOperatorName(name);
+    localStorage.setItem('execute_os_operator_name', name);
+  };
+
+  const updateSoundFXEnabled = (enabled: boolean) => {
+    setSoundFXEnabled(enabled);
+    localStorage.setItem('execute_os_sound_enabled', String(enabled));
+  };
+
+  const updateThemeAccent = (accent: string) => {
+    setThemeAccent(accent);
+    localStorage.setItem('execute_os_theme_accent', accent);
+  };
+
+  // Safe client-side Web Audio API synthesizer for retro mechanical click feedback
+  const playSystemSound = (type: 'click' | 'success' | 'warning' | 'theme') => {
+    if (!soundFXEnabled) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      if (type === 'click') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(850, ctx.currentTime);
+        gain.gain.setValueAtTime(0.015, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } else if (type === 'success') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+        gain.gain.setValueAtTime(0.018, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.22);
+      } else if (type === 'warning') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      } else if (type === 'theme') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.06);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.012, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      }
+    } catch (e) {
+      // Browser blocked autostart or unsupported
+    }
+  };
 
   // User Authentication states
   const [user, setUser] = useState<{ id: string; email: string; display_name: string; avatar_url: string } | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoginInitiating, setIsLoginInitiating] = useState<boolean>(false);
+
+  // Keep operatorName in sync with logged in user display name if not custom set
+  useEffect(() => {
+    if (user && !localStorage.getItem('execute_os_operator_name') && !operatorName) {
+      setOperatorName(user.display_name);
+    }
+  }, [user]);
 
   const checkAuthStatus = async () => {
     try {
@@ -65,6 +230,18 @@ export default function App() {
 
   useEffect(() => {
     checkAuthStatus();
+    
+    // Set initial RightPanel visibility based on viewport width
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsRightPanelOpen(true);
+      } else {
+        setIsRightPanelOpen(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -200,7 +377,32 @@ export default function App() {
     localStorage.setItem(LOCAL_STORAGE_KEY_TEXTS, JSON.stringify(customTexts));
   }, [customTexts]);
 
-  const activePage = PAGES.find(p => p.id === activePageId) || PAGES[0];
+  const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(6); // Default to July (index 6) as July 4 is active default date
+
+  const monthsData = [
+    { num: '01', name: 'January' },
+    { num: '02', name: 'February' },
+    { num: '03', name: 'March' },
+    { num: '04', name: 'April' },
+    { num: '05', name: 'May' },
+    { num: '06', name: 'June' },
+    { num: '07', name: 'July' },
+    { num: '08', name: 'August' },
+    { num: '09', name: 'September' },
+    { num: '10', name: 'October' },
+    { num: '11', name: 'November' },
+    { num: '12', name: 'December' }
+  ];
+
+  const activePageRaw = PAGES.find(p => p.id === activePageId) || PAGES[0];
+  const activePage = activePageRaw.type === 'monthly_dashboard'
+    ? { 
+        ...activePageRaw, 
+        num: monthsData[selectedMonthIdx].num, 
+        month: monthsData[selectedMonthIdx].name, 
+        title: `${monthsData[selectedMonthIdx].name} Monthly Dashboard` 
+      }
+    : activePageRaw;
 
   const handleCustomTextChange = (key: string, value: string) => {
     setCustomTexts(prev => ({
@@ -315,26 +517,43 @@ export default function App() {
     <div className="bg-[#121316] text-gray-200 h-screen overflow-hidden flex flex-col font-sans relative">
       
       {/* HEADER BAR */}
-      <header className="bg-[#1C1E22] border-b border-gray-800 px-6 py-3.5 flex items-center justify-between shrink-0 no-print">
-        <div 
-          onClick={handleBackToDashboard}
-          className="flex items-center space-x-3 cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-lg overflow-hidden border border-indigo-500/30 flex items-center justify-center shadow-md shadow-indigo-600/10 transition-all group-hover:border-indigo-400">
-            <img 
-              src="/src/assets/images/execute_planner_icon_1784605259769.jpg" 
-              alt="Execute Personal Planner Icon" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div>
-            <h1 className="text-white font-bold font-sans tracking-tight flex items-center text-sm md:text-base group-hover:text-indigo-400 transition-colors">
-              Execute Personal Planner
-              <span className="ml-2.5 px-2 py-0.5 text-[10px] font-semibold bg-indigo-950 text-indigo-300 rounded border border-indigo-800/40">
-                Hub
-              </span>
-            </h1>
+      <header className="bg-[#1C1E22] border-b border-gray-800 px-4 md:px-6 py-3.5 flex items-center justify-between shrink-0 no-print">
+        <div className="flex items-center space-x-2.5">
+          {/* Hamburger Menu on mobile to open Sidebar */}
+          {currentView === 'planner' && (
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-gray-400 hover:text-white hover:bg-gray-850 rounded-md transition"
+              title="Open Navigation"
+              id="mobile-hamburger-btn"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
+
+          <div 
+            onClick={handleBackToDashboard}
+            className="flex items-center space-x-3 cursor-pointer group"
+          >
+            <div 
+              className="w-8 h-8 md:w-9 md:h-9 rounded-lg overflow-hidden border border-transparent flex items-center justify-center shadow-md transition-all"
+              style={{
+                borderColor: `${theme.primary}4c`,
+                boxShadow: `0 4px 6px -1px ${theme.primary}1a, 0 2px 4px -2px ${theme.primary}1a`
+              }}
+            >
+              <img 
+                src="/src/assets/images/execute_planner_icon_1784605259769.jpg" 
+                alt="Execute Personal Planner Icon" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div>
+              <h1 className={`text-white font-bold font-sans tracking-tight flex items-center text-xs sm:text-sm md:text-base group-hover:${theme.text} transition-colors`}>
+                Execute Personal Planner
+              </h1>
+            </div>
           </div>
         </div>
 
@@ -346,7 +565,7 @@ export default function App() {
               onClick={handleBackToDashboard}
               className="bg-[#151619] hover:bg-gray-800 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-2 rounded-md font-medium transition flex items-center space-x-1.5 active:scale-95"
             >
-              <LayoutGrid className="h-3.5 w-3.5 text-indigo-400" />
+              <LayoutGrid className={`h-3.5 w-3.5 ${theme.text}`} />
               <span className="hidden sm:inline">Dashboard Hub</span>
             </button>
           )}
@@ -357,93 +576,17 @@ export default function App() {
               onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
               className={`text-xs px-3 py-2 rounded-md font-medium transition flex items-center space-x-1.5 border active:scale-95 ${
                 isRightPanelOpen 
-                  ? 'bg-indigo-600/10 hover:bg-indigo-600/20 border-indigo-500/30 text-indigo-300' 
+                  ? `${theme.badgeBg} ${theme.border} ${theme.text}` 
                   : 'bg-transparent hover:bg-gray-800 border-gray-700 text-gray-300 hover:text-white'
               }`}
               title="Toggle Element Editor Controls"
               id="toggle-right-panel-btn"
             >
               <Sliders className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">{isRightPanelOpen ? 'Hide Controls' : 'Show Controls'}</span>
+              <span className="hidden sm:inline">{isRightPanelOpen ? 'Hide Controls' : 'Show Controls'}</span>
             </button>
           )}
 
-          {/* Reset Blueprint */}
-          <button
-            onClick={handleResetToDefaults}
-            className="bg-transparent hover:bg-gray-800 border border-gray-700 text-gray-300 hover:text-white text-xs px-3 py-2 rounded-md font-medium transition flex items-center space-x-1.5 active:scale-95"
-            title="Reset All Edits to Default"
-            id="reset-defaults-btn"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Reset Defaults</span>
-          </button>
-
-          {/* Download App (PWA) button */}
-          <button
-            onClick={handleInstallClick}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-md font-semibold transition flex items-center space-x-1.5 shadow-lg shadow-emerald-600/15 active:scale-95"
-            id="download-app-btn"
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span>Download App</span>
-          </button>
-
-          {/* Optional Google Account access controls (non-blocking) */}
-          {user ? (
-            <div className="flex items-center space-x-3 pl-3 border-l border-gray-800 ml-1 shrink-0">
-              <img
-                src={user.avatar_url}
-                alt={user.display_name}
-                className="w-7 h-7 rounded-full border border-indigo-500/30 object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <span className="hidden lg:inline text-xs font-semibold text-gray-300 max-w-[120px] truncate">
-                {user.display_name}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-transparent hover:bg-red-950/20 hover:text-red-400 text-gray-400 hover:text-white text-xs px-2.5 py-1.5 rounded border border-transparent hover:border-red-900/40 transition active:scale-95 cursor-pointer font-medium"
-                id="header-logout-btn"
-              >
-                Sign Out
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2 pl-3 border-l border-gray-800 ml-1 shrink-0">
-              <button
-                onClick={handleGoogleLogin}
-                disabled={isLoginInitiating}
-                className="bg-[#2A2D35] hover:bg-indigo-600 hover:text-white hover:border-indigo-500 text-gray-300 text-xs px-3 py-2 rounded-md font-semibold border border-gray-700 transition flex items-center space-x-2 active:scale-95 cursor-pointer disabled:opacity-50"
-                id="header-login-btn"
-                title="Connect Google Account to store and backup your data"
-              >
-                {isLoginInitiating ? (
-                  <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                )}
-                <span>Connect Google</span>
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
@@ -458,7 +601,8 @@ export default function App() {
           <div className="lg:hidden shrink-0">
             <button
               onClick={() => setIsMonthSelectorOpen(true)}
-              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-md flex items-center justify-center space-x-1.5 transition active:scale-95 shadow-md shadow-indigo-600/15"
+              className={`w-full sm:w-auto ${theme.btnBg} text-white text-xs font-semibold px-3 py-1.5 rounded-md flex items-center justify-center space-x-1.5 transition active:scale-95 shadow-md`}
+              style={{ boxShadow: `0 4px 6px -1px ${theme.primary}26` }}
               id="mobile-month-select-trigger"
             >
               <Layers className="h-3.5 w-3.5" />
@@ -469,16 +613,47 @@ export default function App() {
       </div>
 
       {/* WORKSPACE DIVISIONS */}
-      <div className="flex flex-1 overflow-hidden no-print">
+      <div className="flex flex-1 overflow-hidden no-print relative">
+        {/* Backdrop for Sidebar on mobile */}
+        {currentView === 'planner' && isSidebarOpen && (
+          <div 
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            id="sidebar-mobile-backdrop"
+          />
+        )}
+
+        {/* Backdrop for RightPanel on mobile */}
+        {currentView === 'planner' && isRightPanelOpen && (
+          <div 
+            onClick={() => setIsRightPanelOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            id="rightpanel-mobile-backdrop"
+          />
+        )}
         
         {/* Left selector */}
         {currentView === 'planner' && (
           <Sidebar
             activePageId={activePageId}
-            onPageSelect={setActivePageId}
+            onPageSelect={(id) => {
+              setActivePageId(id);
+              setIsSidebarOpen(false);
+            }}
             customTexts={customTexts}
             selectedSection={selectedSection}
             onBackToDashboard={handleBackToDashboard}
+            user={user}
+            onGoogleLogin={handleGoogleLogin}
+            isLoginInitiating={isLoginInitiating}
+            onLogout={handleLogout}
+            onInstallClick={handleInstallClick}
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            theme={theme}
+            playSystemSound={playSystemSound}
+            selectedMonthIdx={selectedMonthIdx}
+            setSelectedMonthIdx={setSelectedMonthIdx}
           />
         )}
 
@@ -489,6 +664,14 @@ export default function App() {
             customTexts={customTexts}
             onNavigateToSection={handleNavigateToSection}
             user={user}
+            operatorName={operatorName}
+            updateOperatorName={updateOperatorName}
+            soundFXEnabled={soundFXEnabled}
+            updateSoundFXEnabled={updateSoundFXEnabled}
+            themeAccent={themeAccent}
+            updateThemeAccent={updateThemeAccent}
+            playSystemSound={playSystemSound}
+            theme={theme}
           />
         ) : (
           <Workspace
@@ -514,21 +697,28 @@ export default function App() {
             setProjectTab={setProjectTab}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
+            selectedMonthIdx={selectedMonthIdx}
+            setSelectedMonthIdx={setSelectedMonthIdx}
           />
         )}
 
         {/* Right Settings */}
-        {currentView === 'planner' && isRightPanelOpen && (
-          <RightPanel
-            activePage={activePage}
-            state={state}
-            onStateChange={setState}
-            customTexts={customTexts}
-            onCustomTextChange={handleCustomTextChange}
-            onDownloadSVG={handleDownloadSVG}
-            onDownloadZip={handleDownloadAllZip}
-            onPrintPage={handlePrintPage}
-          />
+        {currentView === 'planner' && (
+          <div className={`${isRightPanelOpen ? 'block' : 'hidden lg:block lg:w-0 lg:overflow-hidden lg:border-l-0 shrink-0 z-50'}`}>
+            <RightPanel
+              activePage={activePage}
+              state={state}
+              onStateChange={setState}
+              customTexts={customTexts}
+              onCustomTextChange={handleCustomTextChange}
+              onDownloadSVG={handleDownloadSVG}
+              onDownloadZip={handleDownloadAllZip}
+              onPrintPage={handlePrintPage}
+              onResetAllData={handleResetToDefaults}
+              isOpen={isRightPanelOpen}
+              onClose={() => setIsRightPanelOpen(false)}
+            />
+          </div>
         )}
       </div>
 
@@ -548,7 +738,7 @@ export default function App() {
             {/* Header */}
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <h3 className="text-white font-semibold text-sm flex items-center space-x-2">
-                <Layers className="h-4 w-4 text-indigo-400" />
+                <Layers className={`h-4 w-4 ${theme.text}`} />
                 <span>Monthly Dashboards</span>
               </h3>
               <button 
@@ -562,23 +752,24 @@ export default function App() {
             
             {/* List of Months */}
             <div className="p-3 max-h-[320px] overflow-y-auto space-y-1 custom-scrollbar">
-              {PAGES.filter(p => p.section === 'Monthly Dashboards').map(page => {
-                const isActive = activePageId === page.id;
+              {monthsData.map((m, idx) => {
+                const isActive = activePageId === 6 && selectedMonthIdx === idx;
                 return (
                   <button
-                    key={page.id}
+                    key={m.num}
                     onClick={() => {
-                      setActivePageId(page.id);
+                      setActivePageId(6);
+                      setSelectedMonthIdx(idx);
                       setIsMonthSelectorOpen(false);
                     }}
                     className={`w-full text-left flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition ${
                       isActive 
-                        ? 'bg-indigo-600 text-white font-semibold shadow' 
+                        ? `${theme.bg} text-[#0c0c0e] font-semibold shadow` 
                         : 'text-gray-300 hover:bg-[#25282E]'
                     }`}
-                    id={`modal-month-btn-${page.id}`}
+                    id={`modal-month-btn-${m.num}`}
                   >
-                    <span>{page.month || page.title}</span>
+                    <span>{m.name} Dashboard</span>
                     {isActive && <Check className="h-3.5 w-3.5" />}
                   </button>
                 );
@@ -613,7 +804,7 @@ export default function App() {
       {/* FLOATING AI COPILOT BUTTON */}
       <button
         onClick={() => setIsAIDrawerOpen(true)}
-        className="fixed bottom-6 right-6 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 hover:rotate-3 active:scale-95 group z-40 no-print"
+        className={`fixed bottom-6 right-6 bg-gradient-to-r ${theme.fromTo} text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 hover:rotate-3 active:scale-95 group z-40 no-print`}
         title="Ask Planner Copilot"
         id="floating-copilot-trigger"
       >
@@ -638,6 +829,7 @@ export default function App() {
         selectedProjectId={selectedProjectId}
         projectTab={projectTab}
         selectedDate={selectedDate}
+        theme={theme}
       />
 
       {/* NOTIFICATION TOAST */}

@@ -20,7 +20,8 @@ import {
   Calendar,
   CheckSquare,
   Activity,
-  Heart
+  Heart,
+  X
 } from 'lucide-react';
 
 interface RightPanelProps {
@@ -32,6 +33,9 @@ interface RightPanelProps {
   onDownloadSVG: () => void;
   onDownloadZip: () => void;
   onPrintPage: () => void;
+  onResetAllData?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({
@@ -42,10 +46,11 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   onCustomTextChange,
   onDownloadSVG,
   onDownloadZip,
-  onPrintPage
+  onPrintPage,
+  onResetAllData,
+  isOpen = false,
+  onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'blueprint' | 'editor'>('editor');
-
   // Helper to fetch custom text
   const getCustomTextVal = (key: string, fallback: string) => {
     return customTexts[key] !== undefined ? customTexts[key] : fallback;
@@ -91,11 +96,22 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
   return (
     <aside 
-      className="w-80 bg-[#1C1E22] border-l border-gray-800 flex flex-col shrink-0"
+      className={`fixed inset-y-0 right-0 z-50 lg:relative lg:flex w-80 bg-[#1C1E22] border-l border-gray-800 flex flex-col shrink-0 transition-transform duration-300 ${
+        isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+      }`}
       aria-label="Settings and Editor Panel"
     >
       {/* Workspace Editor Info */}
-      <div className="p-4 border-b border-gray-800 bg-[#22252A] shadow-sm space-y-1.5 shrink-0">
+      <div className="p-4 border-b border-gray-800 bg-[#22252A] shadow-sm space-y-1.5 shrink-0 relative">
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="lg:hidden absolute top-3.5 right-3.5 text-gray-400 hover:text-white p-1 rounded-md transition"
+            id="mobile-right-panel-close-btn"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
         <span className="text-[9px] font-bold text-indigo-400 tracking-widest uppercase block">
           Interactive Controls
         </span>
@@ -107,197 +123,112 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         </p>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="px-4 py-2 border-b border-gray-800 bg-[#151619] flex space-x-1 shrink-0">
-        <button
-          onClick={() => setActiveTab('editor')}
-          className={`flex-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider rounded-md transition ${
-            activeTab === 'editor' 
-              ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 font-bold' 
-              : 'text-gray-400 hover:text-white border border-transparent'
-          }`}
-        >
-          Element Controls
-        </button>
-        <button
-          onClick={() => setActiveTab('blueprint')}
-          className={`flex-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider rounded-md transition ${
-            activeTab === 'blueprint' 
-              ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 font-bold' 
-              : 'text-gray-400 hover:text-white border border-transparent'
-          }`}
-        >
-          Blueprint Specs
-        </button>
-      </div>
-
       {/* Tab Content Body */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
 
-        {/* TAB 1: BLUEPRINT DESIGN DETAILS */}
-        {activeTab === 'blueprint' && (
-          <div 
-            id="blueprint-tab-panel" 
-            role="tabpanel" 
-            aria-labelledby="blueprint-tab-btn"
-            className="space-y-4"
-          >
-            <h4 className="text-[10px] font-bold text-white uppercase tracking-wider border-b border-gray-800 pb-2 flex items-center space-x-1.5">
-              <Layout className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Layout Specifications</span>
-            </h4>
+        <div 
+          id="editor-tab-panel" 
+          role="tabpanel" 
+          aria-labelledby="editor-tab-btn"
+          className="space-y-4"
+        >
+          <h4 className="text-[10px] font-bold text-white uppercase tracking-wider border-b border-gray-800 pb-2 flex items-center space-x-1.5">
+            <Sliders className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Canvas Element Controls</span>
+          </h4>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between py-1 border-b border-gray-800/60">
-                <span className="text-gray-400">Page Sizing Dimensions</span>
-                <span className="text-white font-mono font-medium">148 mm × 210 mm (A5)</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-gray-800/60">
-                <span className="text-gray-400">Layout Safety Margins</span>
-                <span className="text-white font-mono font-medium">10 mm All Edges</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-gray-800/60">
-                <span className="text-gray-400">Header Typography</span>
-                <span className="text-white font-medium flex items-center space-x-1">
-                  <Type className="h-3 w-3 text-gray-500" />
-                  <span>Montserrat Bold</span>
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-gray-800/60">
-                <span className="text-gray-400">Body Typography</span>
-                <span className="text-white font-medium flex items-center space-x-1">
-                  <Type className="h-3 w-3 text-gray-500" />
-                  <span>Inter Regular</span>
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-gray-800/60">
-                <span className="text-gray-400">Grids &amp; Wireframe Sizing</span>
-                <span className="text-white font-mono font-medium">0.75 pt stroke width</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-gray-800/60">
-                <span className="text-gray-400">Calibration Alignment</span>
-                <span className="text-emerald-400 font-mono font-bold">100% Vector Crisp</span>
-              </div>
-            </div>
-
-            {/* Zero Shift Notice */}
-            <div className="bg-slate-800/40 border border-slate-800/60 rounded-lg p-3 text-xs leading-relaxed text-gray-400 space-y-1.5 shadow-inner">
-              <div className="flex items-center space-x-1.5 text-white font-semibold">
-                <Info className="h-3.5 w-3.5 text-indigo-400" />
-                <span>Zero-Shift Layout System</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-gray-400 font-sans">
-                This design template is compiled with precise margins to maintain absolute A5 proportionality when imported into your vector editor of choice.
+          {/* Annual Vision Controls */}
+          {activePage.type === 'annual_vision' && (
+            <fieldset className="space-y-3.5 border-none p-0 m-0">
+              <legend className="sr-only">Annual Vision Milestones</legend>
+              <p className="text-[11px] text-gray-400 font-sans">
+                Adjust goals and progress metrics. The central workspace vector updates in real time.
               </p>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: LIVE ELEMENT EDITOR */}
-        {activeTab === 'editor' && (
-          <div 
-            id="editor-tab-panel" 
-            role="tabpanel" 
-            aria-labelledby="editor-tab-btn"
-            className="space-y-4"
-          >
-            <h4 className="text-[10px] font-bold text-white uppercase tracking-wider border-b border-gray-800 pb-2 flex items-center space-x-1.5">
-              <Sliders className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Canvas Element Controls</span>
-            </h4>
-
-            {/* Annual Vision Controls */}
-            {activePage.type === 'annual_vision' && (
-              <fieldset className="space-y-3.5 border-none p-0 m-0">
-                <legend className="sr-only">Annual Vision Milestones</legend>
-                <p className="text-[11px] text-gray-400 font-sans">
-                  Adjust goals and progress metrics. The central workspace vector updates in real time.
-                </p>
-                {state.annualGoals.map((g, idx) => (
-                  <div key={idx} className="space-y-1.5 bg-[#18191D] p-3 rounded-lg border border-gray-800/80">
-                    <label 
-                      htmlFor={`goal-milestone-${idx}`}
-                      className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider block"
-                    >
-                      {g.pillar} Milestone
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        id={`goal-milestone-${idx}`}
-                        value={g.milestone}
-                        onChange={(e) => updateGoal(idx, 'milestone', e.target.value)}
-                        className="flex-1 bg-[#121316] border border-gray-700 text-white rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans transition"
-                        placeholder="Define milestone..."
-                      />
-                      <input
-                        type="number"
-                        id={`goal-progress-${idx}`}
-                        aria-label={`${g.pillar} progress completion percentage`}
-                        value={g.progress}
-                        min="0"
-                        max="100"
-                        onChange={(e) => updateGoal(idx, 'progress', e.target.value)}
-                        className="w-14 bg-[#121316] border border-gray-700 text-white rounded py-1.5 text-xs text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
+              {state.annualGoals.map((g, idx) => (
+                <div key={idx} className="space-y-1.5 bg-[#18191D] p-3 rounded-lg border border-gray-800/80">
+                  <label 
+                    htmlFor={`goal-milestone-${idx}`}
+                    className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider block"
+                  >
+                    {g.pillar} Milestone
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      id={`goal-milestone-${idx}`}
+                      value={g.milestone}
+                      onChange={(e) => updateGoal(idx, 'milestone', e.target.value)}
+                      className="flex-1 bg-[#121316] border border-gray-700 text-white rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans transition"
+                      placeholder="Define milestone..."
+                    />
+                    <input
+                      type="number"
+                      id={`goal-progress-${idx}`}
+                      aria-label={`${g.pillar} progress completion percentage`}
+                      value={g.progress}
+                      min="0"
+                      max="100"
+                      onChange={(e) => updateGoal(idx, 'progress', e.target.value)}
+                      className="w-14 bg-[#121316] border border-gray-700 text-white rounded py-1.5 text-xs text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
-                ))}
-              </fieldset>
-            )}
+                </div>
+              ))}
+            </fieldset>
+          )}
 
-            {/* Project Portfolio Controls */}
-            {activePage.type === 'projects_portfolio' && (
-              <fieldset className="space-y-3 border-none p-0 m-0">
-                <legend className="sr-only">Projects Portfolio Editor</legend>
-                <p className="text-[11px] text-gray-400 font-sans">
-                  Edit project portfolio parameters. Status flags generate matching color vectors.
-                </p>
-                {state.projects.map((p, idx) => (
-                  <div key={idx} className="bg-[#18191D] p-3 rounded-lg border border-gray-800 space-y-2.5">
-                    <span className="text-[10px] text-indigo-400 font-bold block uppercase tracking-wider">
-                      PROJECT SLOT 0{idx + 1}
-                    </span>
-                    <div className="space-y-1">
-                      <label htmlFor={`proj-name-${idx}`} className="sr-only">Project Name</label>
-                      <input
-                        type="text"
-                        id={`proj-name-${idx}`}
-                        value={p.name}
-                        onChange={(e) => updateProject(idx, 'name', e.target.value)}
-                        className="w-full bg-[#121316] border border-gray-700 text-white rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-medium"
-                        placeholder="Project Name..."
-                      />
-                    </div>
-                    <div className="flex space-x-1.5">
-                      <label htmlFor={`proj-status-${idx}`} className="sr-only">Status</label>
-                      <select
-                        id={`proj-status-${idx}`}
-                        value={p.status}
-                        onChange={(e) => updateProject(idx, 'status', e.target.value)}
-                        className="flex-1 bg-[#121316] border border-gray-700 text-white rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
-                      >
-                        <option value="In Progress">In Progress</option>
-                        <option value="Planning">Planning</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Blocked">Blocked</option>
-                      </select>
-                      <label htmlFor={`proj-due-${idx}`} className="sr-only">Due Date</label>
-                      <input
-                        type="text"
-                        id={`proj-due-${idx}`}
-                        value={p.due}
-                        onChange={(e) => updateProject(idx, 'due', e.target.value)}
-                        className="w-20 bg-[#121316] border border-gray-700 text-white rounded px-1.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans text-center"
-                        placeholder="Due Date..."
-                      />
-                      <label htmlFor={`proj-pct-${idx}`} className="sr-only">Completion ratio</label>
-                      <input
-                        type="number"
-                        id={`proj-pct-${idx}`}
-                        value={p.pct}
-                        min="0"
-                        max="100"
+          {/* Project Portfolio Controls */}
+          {activePage.type === 'projects_portfolio' && (
+            <fieldset className="space-y-3 border-none p-0 m-0">
+              <legend className="sr-only">Projects Portfolio Editor</legend>
+              <p className="text-[11px] text-gray-400 font-sans">
+                Edit project portfolio parameters. Status flags generate matching color vectors.
+              </p>
+              {state.projects.map((p, idx) => (
+                <div key={idx} className="bg-[#18191D] p-3 rounded-lg border border-gray-800 space-y-2.5">
+                  <span className="text-[10px] text-indigo-400 font-bold block uppercase tracking-wider">
+                    PROJECT SLOT 0{idx + 1}
+                  </span>
+                  <div className="space-y-1">
+                    <label htmlFor={`proj-name-${idx}`} className="sr-only">Project Name</label>
+                    <input
+                      type="text"
+                      id={`proj-name-${idx}`}
+                      value={p.name}
+                      onChange={(e) => updateProject(idx, 'name', e.target.value)}
+                      className="w-full bg-[#121316] border border-gray-700 text-white rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-medium"
+                      placeholder="Project Name..."
+                    />
+                  </div>
+                  <div className="flex space-x-1.5">
+                    <label htmlFor={`proj-status-${idx}`} className="sr-only">Status</label>
+                    <select
+                      id={`proj-status-${idx}`}
+                      value={p.status}
+                      onChange={(e) => updateProject(idx, 'status', e.target.value)}
+                      className="flex-1 bg-[#121316] border border-gray-700 text-white rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    >
+                      <option value="In Progress">In Progress</option>
+                      <option value="Planning">Planning</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Blocked">Blocked</option>
+                    </select>
+                    <label htmlFor={`proj-due-${idx}`} className="sr-only">Due Date</label>
+                    <input
+                      type="text"
+                      id={`proj-due-${idx}`}
+                      value={p.due}
+                      onChange={(e) => updateProject(idx, 'due', e.target.value)}
+                      className="w-20 bg-[#121316] border border-gray-700 text-white rounded px-1.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans text-center"
+                      placeholder="Due Date..."
+                    />
+                    <label htmlFor={`proj-pct-${idx}`} className="sr-only">Completion ratio</label>
+                    <input
+                      type="number"
+                      id={`proj-pct-${idx}`}
+                      value={p.pct}
+                      min="0"
+                      max="100"
                         onChange={(e) => updateProject(idx, 'pct', e.target.value)}
                         className="w-12 bg-[#121316] border border-gray-700 text-white rounded py-1.5 text-xs text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="%"
@@ -658,12 +589,11 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             )}
 
           </div>
-        )}
 
       </div>
 
       {/* EXPORT ACTION FOOTER BAR */}
-      <div className="p-4 border-t border-gray-800 bg-[#18191D] shrink-0 no-print">
+      <div className="p-4 border-t border-gray-800 bg-[#18191D] shrink-0 no-print space-y-2">
         <button
           onClick={onPrintPage}
           className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs py-3 rounded-md font-semibold transition-all flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/10 focus:outline-none focus:ring-2 focus:ring-indigo-500 active:scale-[0.98]"
@@ -672,6 +602,16 @@ export const RightPanel: React.FC<RightPanelProps> = ({
           <Info className="h-3.5 w-3.5" />
           <span>Print Active Month to PDF</span>
         </button>
+        {onResetAllData && (
+          <button
+            onClick={onResetAllData}
+            className="w-full bg-transparent hover:bg-red-500/10 border border-gray-700 hover:border-red-500/50 text-gray-400 hover:text-red-400 text-[11px] py-2 rounded-md font-medium transition-all flex items-center justify-center space-x-2 focus:outline-none active:scale-[0.98]"
+            id="reset-all-data-btn"
+          >
+            <RefreshCw className="h-3 w-3" />
+            <span>Reset to Blank Canvas</span>
+          </button>
+        )}
       </div>
 
     </aside>
